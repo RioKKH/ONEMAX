@@ -120,10 +120,13 @@ __global__ void evaluation(PopulationData* populationData)
 
 __global__ void pseudo_elitism(PopulationData* populationData)
 {
-    int numOfEliteIdx     = blockIdx.x;  // size of NUM_OF_ELITE x 2
+    //<<<getNumOfElite(),
+    //   getPopsize()/getNumOfElite(),
+    //   getPopsize()/getNumOfElite()*2*sizeof(int)>>>
+    int numOfEliteIdx     = blockIdx.x;  // index of elite
     int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
     int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
-    const int OFFSET      = blockDim.x;  // size of POPULATION / NUM_OF_ELITE
+    const int OFFSET      = blockDim.x;  // size of NUM_OF_ELITE
 
     extern __shared__ volatile int s_fitness[];
 
@@ -138,7 +141,10 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     {
         if (localFitnessIdx < stride)
         {
-            unsigned int index = (s_fitness[localFitnessIdx] >= s_fitness[localFitnessIdx + stride]) ? localFitnessIdx : localFitnessIdx + stride;
+            unsigned int index =
+                (s_fitness[localFitnessIdx] >= s_fitness[localFitnessIdx + stride])
+                ? localFitnessIdx : localFitnessIdx + stride;
+
             s_fitness[localFitnessIdx]          = s_fitness[index];
             s_fitness[localFitnessIdx + OFFSET] = s_fitness[index + OFFSET];
         }

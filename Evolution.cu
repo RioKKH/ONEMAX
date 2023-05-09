@@ -310,8 +310,16 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     mDevParentPopulation = mDevOffspringPopulation;
     mDevOffspringPopulation = temp;
 
-    replaceWithElites(mDevParentPopulation->getDeviceData(),
-                      mDevOffspringPopulation->getDeviceData())
+    blocks.x  = prms->getNumOfElite();
+    // blocks.x  = prms->getNumOfElite() * 2;
+    blocks.y  = 1;
+    blocks.z  = 1;
+
+    threads.x = prms->getPopsize() / prms->getNumOfElite();
+    threads.y = 1;
+    threads.z = 1;
+    replaceWithElites<<<blocks, threads>>>(mDevParentPopulation->getDeviceData(),
+                      mDevOffspringPopulation->getDeviceData());
 
     // swapPopulation<<<blocks, threads>>>(mDevParentPopulation->getDeviceData(),
     //                                    mDevOffspringPopulation->getDeviceData());
