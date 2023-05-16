@@ -27,7 +27,7 @@ void copyToDevice(EvolutionParameters cpuEvoPrms)
     printf("copyToDevice %d\n", cpuEvoPrms.POPSIZE);
 #endif // _DEBUG
     cudaMemcpyToSymbol(gpuEvoPrms,
-                       &cpuEvoPrms, 
+                       &cpuEvoPrms,
                        sizeof(EvolutionParameters));
 }
 
@@ -62,7 +62,10 @@ __global__ void cudaGenerateFirstPopulationKernel(PopulationData* populationData
                                                   unsigned int    randomSeed)
 {
     RNG_4x32 rng_4x32;
-    RNG_4x32::key_type key = {{static_cast<unsigned int>(threadIdx.x), static_cast<unsigned int>(blockIdx.x)}};
+    RNG_4x32::key_type key
+        = {{static_cast<unsigned int>(threadIdx.x),
+            static_cast<unsigned int>(blockIdx.x)}};
+
     RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
     RNG_4x32::ctr_type randomValues;
     // RNG_4x32::ctr_type randomValues = rng_4x32(counter, key);
@@ -133,7 +136,7 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     // shared memoryにデータを読み込み
     // ブロック数はElite数の２倍。
     s_fitness[localFitnessIdx]          = populationData->fitness[globalFitnessIdx];
-    s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx; 
+    s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
     __syncthreads();
 
     // printf("### Pseudo elitism\n");
@@ -156,12 +159,15 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     {
         populationData->elitesIdx[numOfEliteIdx] = s_fitness[localFitnessIdx + OFFSET];
 #ifdef _DEBUG
-        printf("elitism: blockIdx:%d , eliteIndex:%d\n", blockIdx.x, s_fitness[localFitnessIdx + OFFSET]);
+        printf("elitism: blockIdx:%d , eliteIndex:%d\n",
+                blockIdx.x, s_fitness[localFitnessIdx + OFFSET]);
 #endif // _DEBUG
     }
 }
 
-__global__ void replaceWithElites(PopulationData *parentPopulation, PopulationData *offspringPopulation)
+__global__ void replaceWithElites(
+        PopulationData *parentPopulation,
+        PopulationData *offspringPopulation)
 {
     std::uint32_t tx  = threadIdx.x;
     std::uint32_t idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -170,14 +176,18 @@ __global__ void replaceWithElites(PopulationData *parentPopulation, PopulationDa
 
     if (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0)
     {
-        std::uint32_t ELITE_INDEX  = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
-        std::uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[ELITE_INDEX]; 
-        // std::uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_ACTUAL * parentPopulation->elitesIdx[ELITE_INDEX]; 
+        std::uint32_t ELITE_INDEX
+            = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
+        std::uint32_t ELITE_OFFSET
+            = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[ELITE_INDEX];
+
+        // std::uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_ACTUAL * parentPopulation->elitesIdx[ELITE_INDEX];
         //- エリートの遺伝子を子にコピーする
         for (int i = 0; i < gpuEvoPrms.CHROMOSOME_PSEUDO; ++i)
         // for (int i = 0; i < gpuEvoPrms.CHROMOSOME_ACTUAL; ++i)
         {
-            offspringPopulation->population[OFFSET + i] = parentPopulation->population[ELITE_OFFSET + i];
+            offspringPopulation->population[OFFSET + i]
+                = parentPopulation->population[ELITE_OFFSET + i];
         }
         //- エリートのFitnessをコピーする
         offspringPopulation->fitness[idx]
@@ -218,9 +228,11 @@ __global__ void swapPopulation(PopulationData* parentPopulation,
     {
         if (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0)
         {
-            std::uint32_t ELITE_INDEX  = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
-            std::uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[ELITE_INDEX]; 
-            // std::uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_ACTUAL * parentPopulation->elitesIdx[ELITE_INDEX]; 
+            std::uint32_t ELITE_INDEX
+                = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
+            std::uint32_t ELITE_OFFSET
+                = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[ELITE_INDEX];
+            // std::uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_ACTUAL * parentPopulation->elitesIdx[ELITE_INDEX];
 #ifdef _DEBUG
             printf("swap target:%d, src eindex:%d, src eoffset:%d\n", idx, ELITE_INDEX, ELITE_OFFSET);
 #endif // _DEBUG
@@ -228,7 +240,8 @@ __global__ void swapPopulation(PopulationData* parentPopulation,
             for (int i = 0; i < gpuEvoPrms.CHROMOSOME_PSEUDO; ++i)
             // for (int i = 0; i < gpuEvoPrms.CHROMOSOME_ACTUAL; ++i)
             {
-                offspringPopulation->population[OFFSET + i] = parentPopulation->population[ELITE_OFFSET + i];
+                offspringPopulation->population[OFFSET + i]
+                    = parentPopulation->population[ELITE_OFFSET + i];
             }
             //- エリートのFitnessをコピーする
             offspringPopulation->fitness[idx]
@@ -243,7 +256,8 @@ __global__ void swapPopulation(PopulationData* parentPopulation,
         for (int i = 0; i < gpuEvoPrms.CHROMOSOME_PSEUDO * POP_PER_THR; ++i)
         // for (int i = 0; i < gpuEvoPrms.CHROMOSOME_ACTUAL * POP_PER_THR; ++i)
         {
-            parentPopulation->population[OFFSET + i] = offspringPopulation->population[OFFSET + i];
+            parentPopulation->population[OFFSET + i]
+                = offspringPopulation->population[OFFSET + i];
         }
     }
     __syncthreads();
@@ -269,7 +283,10 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
 
     // // Init randome number generator
     RNG_4x32 rng_4x32;
-    RNG_4x32::key_type key = {{static_cast<unsigned int>(threadIdx.x), static_cast<unsigned int>(blockIdx.x)}};
+    RNG_4x32::key_type key
+        = {{static_cast<unsigned int>(threadIdx.x),
+            static_cast<unsigned int>(blockIdx.x)}};
+
     RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
     RNG_4x32::ctr_type randomValues1;
     RNG_4x32::ctr_type randomValues2;
@@ -289,7 +306,7 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
         randomValues1 = rng_4x32(counter, key);
         counter.incr();
         randomValues2 = rng_4x32(counter, key);
-        
+
         // 親1 : 0 ~ 31までのインデックス
         // parent1Idx[threadIdx.x] = tournamentSelection(mParentPopulation, gpuEvoPrms.TOURNAMENT_SIZE,
         parent1Idx[PARENTIDX] = tournamentSelection(mParentPopulation,
@@ -299,11 +316,11 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
                                                     randomValues1.v[2],
                                                     randomValues1.v[3]);
 
-        // 親2 : 0 ~ 31までのインデックス 
+        // 親2 : 0 ~ 31までのインデックス
         // parent2Idx[threadIdx.x] = tournamentSelection(mParentPopulation, gpuEvoPrms.TOURNAMENT_SIZE,
-        parent2Idx[PARENTIDX] = tournamentSelection(mParentPopulation, 
+        parent2Idx[PARENTIDX] = tournamentSelection(mParentPopulation,
                                                     gpuEvoPrms.TOURNAMENT_SIZE,
-                                                    randomValues2.v[0], 
+                                                    randomValues2.v[0],
                                                     randomValues2.v[1],
                                                     randomValues2.v[2],
                                                     randomValues2.v[3]);
@@ -334,10 +351,11 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
         randomValues1 = rng_4x32(counter, key);
 
 #ifdef _DEBUG
-        printf("BitFlipMutation: %f,%f,%f,%f\n", r123::u01fixedpt<float>(randomValues1.v[0]),
-                                                 r123::u01fixedpt<float>(randomValues1.v[1]),
-                                                 r123::u01fixedpt<float>(randomValues1.v[2]),
-                                                 r123::u01fixedpt<float>(randomValues1.v[3]));
+        printf("BitFlipMutation: %f,%f,%f,%f\n",
+                r123::u01fixedpt<float>(randomValues1.v[0]),
+                r123::u01fixedpt<float>(randomValues1.v[1]),
+                r123::u01fixedpt<float>(randomValues1.v[2]),
+                r123::u01fixedpt<float>(randomValues1.v[3]));
 #endif // _DEBUG
 
         bitFlipMutation(mOffspringPopulation,
@@ -349,21 +367,34 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
     __syncthreads();
 }
 
-inline __device__ int getBestIndividual(const PopulationData* mParentPopulation,
-                                                 const int& idx1, const int& idx2, const int& idx3, const int& idx4)
+inline __device__ int getBestIndividual(
+        const PopulationData* mParentPopulation,
+        const int& idx1,
+        const int& idx2,
+        const int& idx3,
+        const int& idx4)
 {
-    int better1 = mParentPopulation->fitness[idx1] > mParentPopulation->fitness[idx2] ? idx1 : idx2;
-    int better2 = mParentPopulation->fitness[idx3] > mParentPopulation->fitness[idx4] ? idx3 : idx4;
-    int bestIdx = mParentPopulation->fitness[better1] > mParentPopulation->fitness[better2] ? better1 : better2;
+    int better1
+        = mParentPopulation->fitness[idx1]
+        > mParentPopulation->fitness[idx2] ? idx1 : idx2;
+    int better2
+        = mParentPopulation->fitness[idx3]
+        > mParentPopulation->fitness[idx4] ? idx3 : idx4;
+    int bestIdx
+        = mParentPopulation->fitness[better1]
+        > mParentPopulation->fitness[better2] ? better1 : better2;
 
     return bestIdx;
 }
 
 
-inline __device__ int tournamentSelection(const PopulationData* populationData, 
-                                          int tounament_size,
-                                          const std::uint32_t& random1, const std::uint32_t& random2,
-                                          const std::uint32_t& random3, const std::uint32_t& random4)
+inline __device__ int tournamentSelection(
+        const PopulationData* populationData,
+        int tounament_size,
+        const std::uint32_t& random1,
+        const std::uint32_t& random2,
+        const std::uint32_t& random3,
+        const std::uint32_t& random4)
 {
     // トーナメントサイズは4で固定とする。
     // これはrand123が一度に返すことが出来る乱数の最大個数が4のため。
@@ -393,15 +424,16 @@ inline __device__ void swap(unsigned int& point1, unsigned int& point2)
 }
 
 
-inline __device__ void doublepointsCrossover(const PopulationData* parent,
-                                             PopulationData* offspring,
-                                             const unsigned int& offspringIdx, // threadIdx.x
-                                             int& parent1Idx,
-                                             int& parent2Idx,
-                                             std::uint32_t& random1,
-                                             std::uint32_t& random2)
-                                             // unsigned int& random3,
-                                             // unsigned int& random4)
+inline __device__ void doublepointsCrossover(
+        const PopulationData* parent,
+        PopulationData* offspring,
+        const unsigned int& offspringIdx, // threadIdx.x
+        int& parent1Idx,
+        int& parent2Idx,
+        std::uint32_t& random1,
+        std::uint32_t& random2)
+        // unsigned int& random3,
+        // unsigned int& random4)
 {
     // 実際の遺伝子長を用いてクロスオーバーポイントを決定する
     std::uint32_t idx1 = random1 % (gpuEvoPrms.CHROMOSOME_ACTUAL);
@@ -419,7 +451,10 @@ inline __device__ void doublepointsCrossover(const PopulationData* parent,
 
 #ifdef _DEBUG
     printf("%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
-            offspringIdx, parent1Idx, parent2Idx, idx1, idx2, offset1, offset2, OFFSET1, OFFSET2);
+            offspringIdx, parent1Idx, parent2Idx,
+            idx1, idx2,
+            offset1, offset2,
+            OFFSET1, OFFSET2);
 #endif // _DEBUG
 
     // std::uint32_t offset1 = 2 * offspringIdx * gpuEvoPrms.CHROMOSOME;
@@ -469,9 +504,12 @@ inline __device__ void bitFlipMutation(PopulationData* offspring,
                                        std::uint32_t& random3, std::uint32_t& random4)
 {
     // 実際の遺伝子長からmutation rateを決めるので、CHROMOSOME_ACTUALとなる
-    const float MUTATION_RATE_ADJUSTED = gpuEvoPrms.MUTATION_RATE * gpuEvoPrms.CHROMOSOME_ACTUAL / 4.0f;
+    const float MUTATION_RATE_ADJUSTED
+        = gpuEvoPrms.MUTATION_RATE * gpuEvoPrms.CHROMOSOME_ACTUAL / 4.0f;
+
     // 一方でこちらは配列の全長がわかる必要があるのでCHROMOSOME_PSEUDOとなる
-    const std::int32_t TOTALGENELENGTH = gpuEvoPrms.CHROMOSOME_PSEUDO * gpuEvoPrms.POPSIZE;
+    const std::int32_t TOTALGENELENGTH
+        = gpuEvoPrms.CHROMOSOME_PSEUDO * gpuEvoPrms.POPSIZE;
 
     std::uint32_t popidx  = 0;
     std::uint32_t geneidx = 0;
@@ -495,7 +533,7 @@ inline __device__ void bitFlipMutation(PopulationData* offspring,
         geneidx = (random1 + random2) % gpuEvoPrms.CHROMOSOME_ACTUAL;
         offset  = popidx * gpuEvoPrms.CHROMOSOME_PSEUDO;
         offspring->population[offset + geneidx] ^= 1;
-        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx); 
+        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx);
 
         // offspring->population[random1 % TOTALGENELENGTH] ^= 1;
         // offspring->population[random1 % gpuEvoPrms.CHROMOSOME] ^= 1;
@@ -520,7 +558,7 @@ inline __device__ void bitFlipMutation(PopulationData* offspring,
         geneidx = (random2 + random3) % gpuEvoPrms.CHROMOSOME_ACTUAL;
         offset  = popidx * gpuEvoPrms.CHROMOSOME_PSEUDO;
         offspring->population[offset + geneidx] ^= 1;
-        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx); 
+        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx);
 
         // offspring->population[random2 % TOTALGENELENGTH] ^= 1;
         // offspring->population[random2 % gpuEvoPrms.CHROMOSOME] ^= 1;
@@ -542,7 +580,7 @@ inline __device__ void bitFlipMutation(PopulationData* offspring,
         geneidx = (random3 + random4) % gpuEvoPrms.CHROMOSOME_ACTUAL;
         offset  = popidx * gpuEvoPrms.CHROMOSOME_PSEUDO;
         offspring->population[offset + geneidx] ^= 1;
-        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx); 
+        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx);
 
         // offspring->population[random3 % TOTALGENELENGTH] ^= 1;
         // offspring->population[random3 % gpuEvoPrms.CHROMOSOME] ^= 1;
@@ -567,7 +605,7 @@ inline __device__ void bitFlipMutation(PopulationData* offspring,
         geneidx = (random4 + random1) % gpuEvoPrms.CHROMOSOME_ACTUAL;
         offset  = popidx * gpuEvoPrms.CHROMOSOME_PSEUDO;
         offspring->population[offset + geneidx] ^= 1;
-        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx); 
+        // printf("%d,%d,%d,%d\n", popidx, geneidx, offset, popidx + geneidx);
 
         // offspring->population[random3 % TOTALGENELENGTH] ^= 1;
         // offspring->population[random3 % gpuEvoPrms.CHROMOSOME] ^= 1;

@@ -47,17 +47,20 @@ void GPUPopulation::copyToDevice(const PopulationData* hostPopulation)
     // Basic data check
     if (hostPopulation->chromosomeSize != mHostPopulationHandler.chromosomeSize)
     {
-        throw std::out_of_range("Wrong chromosome size in GPUPopulation::copyToDevice function.");
+        throw std::out_of_range(
+                "Wrong chromosome size in GPUPopulation::copyToDevice function.");
     }
 
     if (hostPopulation->populationSize != mHostPopulationHandler.populationSize)
     {
-        throw std::out_of_range("Wrong population size in GPUPopulation::copyToDevice function.");
+        throw std::out_of_range(
+                "Wrong population size in GPUPopulation::copyToDevice function.");
     }
 
     if (hostPopulation->elitesSize != mHostPopulationHandler.elitesSize)
     {
-        throw std::out_of_range("Wrong elite size in GPUPopulation::copyToDevice function.");
+        throw std::out_of_range(
+                "Wrong elite size in GPUPopulation::copyToDevice function.");
     }
 
     //- Copy chromosomes
@@ -88,17 +91,20 @@ void GPUPopulation::copyFromDevice(PopulationData * hostPopulation)
 {
     if (hostPopulation->chromosomeSize != mHostPopulationHandler.chromosomeSize)
     {
-        throw std::out_of_range("Wrong chromosome size in GPUPopulation::copyFromDevice function.");
+        throw std::out_of_range(
+                "Wrong chromosome size in GPUPopulation::copyFromDevice function.");
     }
 
     if (hostPopulation->populationSize != mHostPopulationHandler.populationSize)
     {
-        throw std::out_of_range("Wrong population size in GPUPopulation::copyFromDevice function.");
+        throw std::out_of_range(
+                "Wrong population size in GPUPopulation::copyFromDevice function.");
     }
 
     if (hostPopulation->elitesSize != mHostPopulationHandler.elitesSize)
     {
-        throw std::out_of_range("Wrong elite size in GPUPopulation::copyFromDevice function.");
+        throw std::out_of_range(
+                "Wrong elite size in GPUPopulation::copyFromDevice function.");
     }
 
     //- Copy fitness values
@@ -128,19 +134,25 @@ void GPUPopulation::copyFromDevice(PopulationData * hostPopulation)
  */
 void GPUPopulation::copyOnDevice(const GPUPopulation* sourceDevicePopulation)
 {
-    if (sourceDevicePopulation->mHostPopulationHandler.chromosomeSize != mHostPopulationHandler.chromosomeSize)
+    if (sourceDevicePopulation->mHostPopulationHandler.chromosomeSize
+            != mHostPopulationHandler.chromosomeSize)
     {
-        throw std::out_of_range("Wrong chromosome size in GPUPopulation::copyOnDevice function.");
+        throw std::out_of_range(
+                "Wrong chromosome size in GPUPopulation::copyOnDevice function.");
     }
 
-    if (sourceDevicePopulation->mHostPopulationHandler.populationSize != mHostPopulationHandler.populationSize)
+    if (sourceDevicePopulation->mHostPopulationHandler.populationSize
+            != mHostPopulationHandler.populationSize)
     {
-        throw std::out_of_range("Wrong population size in GPUPopulation::copyOnDeivce function.");
+        throw std::out_of_range(
+                "Wrong population size in GPUPopulation::copyOnDeivce function.");
     }
 
-    if (sourceDevicePopulation->mHostPopulationHandler.elitesSize != mHostPopulationHandler.elitesSize)
+    if (sourceDevicePopulation->mHostPopulationHandler.elitesSize
+            != mHostPopulationHandler.elitesSize)
     {
-        throw std::out_of_range("Wrong elite size in GPUPopulation::copyOnDeivce function.");
+        throw std::out_of_range(
+                "Wrong elite size in GPUPopulation::copyOnDeivce function.");
     }
 
     // Copy chromosomes
@@ -171,7 +183,8 @@ void GPUPopulation::copyIndividualFromDevice(Gene* individual, int index)
 {
     checkCudaErrors(
             cudaMemcpy(individual,
-                       &(mHostPopulationHandler.population[index * mHostPopulationHandler.chromosomeSize]),
+                       &(mHostPopulationHandler.population[
+                           index * mHostPopulationHandler.chromosomeSize]),
                        sizeof(Gene) * mHostPopulationHandler.chromosomeSize,
                        cudaMemcpyDeviceToHost));
 } // end of copyIndividualFromDevice
@@ -185,24 +198,32 @@ void GPUPopulation::copyIndividualFromDevice(Gene* individual, int index)
 void GPUPopulation::allocateMemory()
 {
     //- Allocate data structure
-    checkCudaErrors(cudaMalloc<PopulationData>(&mDeviceData, sizeof(PopulationData)));
+    checkCudaErrors(
+            cudaMalloc<PopulationData>(&mDeviceData, sizeof(PopulationData)));
 
     //- Allocate Population data
-    checkCudaErrors(cudaMalloc<Gene>(&(mHostPopulationHandler.population),
-                                       sizeof(Gene) * mHostPopulationHandler.chromosomeSize
-                                                    * mHostPopulationHandler.populationSize));
+    checkCudaErrors(
+            cudaMalloc<Gene>(&(mHostPopulationHandler.population),
+                sizeof(Gene) * mHostPopulationHandler.chromosomeSize
+                             * mHostPopulationHandler.populationSize));
 
     //- Allocate Fitness data
-    checkCudaErrors(cudaMalloc<Fitness>(&(mHostPopulationHandler.fitness),
-                                          sizeof(Fitness) * mHostPopulationHandler.populationSize));
+    checkCudaErrors(
+            cudaMalloc<Fitness>(&(mHostPopulationHandler.fitness),
+                sizeof(Fitness) * mHostPopulationHandler.populationSize));
 
     //- Allocate ElitesIdx data
-    checkCudaErrors(cudaMalloc<ElitesIdx>(&(mHostPopulationHandler.elitesIdx),
-                                            sizeof(ElitesIdx) * mHostPopulationHandler.elitesSize));
+    checkCudaErrors(
+            cudaMalloc<ElitesIdx>(&(mHostPopulationHandler.elitesIdx),
+                sizeof(ElitesIdx) * mHostPopulationHandler.elitesSize));
 
     //- Copy structure to GPU
     checkCudaErrors(
-            cudaMemcpy(mDeviceData, &mHostPopulationHandler, sizeof(PopulationData), cudaMemcpyHostToDevice)
+            cudaMemcpy(
+                mDeviceData, 
+                &mHostPopulationHandler, 
+                sizeof(PopulationData),
+                cudaMemcpyHostToDevice)
             );
 } // end of allocateMemory
 
@@ -269,9 +290,12 @@ std::int32_t CPUPopulation::getMin()
 
 double CPUPopulation::getMean()
 {
-    int fitnessSum = std::accumulate(mHostData->fitness,
-                                     mHostData->fitness + mHostData->populationSize, 0);
-    double fitnessAverage = static_cast<double>(fitnessSum) / mHostData->populationSize;
+    int fitnessSum
+        = std::accumulate(mHostData->fitness,
+                          mHostData->fitness + mHostData->populationSize, 0);
+    double fitnessAverage
+        = static_cast<double>(fitnessSum) / mHostData->populationSize;
+
     return fitnessAverage;
 }
 
@@ -286,23 +310,25 @@ void CPUPopulation::allocateMemory()
     // printf("num of population elements: %d\n", mHostData->chromosomeSize * mHostData->populationSize);
     //- Allocate Population on the host side
     checkCudaErrors(
-            cudaHostAlloc<Gene>(&mHostData->population,
-                                sizeof(Gene) * mHostData->chromosomeSize * mHostData->populationSize,
-                                cudaHostAllocDefault)
-            );
+            cudaHostAlloc<Gene>
+            (&mHostData->population,
+             sizeof(Gene) * mHostData->chromosomeSize * mHostData->populationSize,
+             cudaHostAllocDefault));
 
     //- Allocate fitness on the host side
     checkCudaErrors(
-            cudaHostAlloc<Fitness>(&mHostData->fitness,
-                                   sizeof(Fitness) * mHostData->populationSize,
-                                   cudaHostAllocDefault)
-            );
+            cudaHostAlloc<Fitness>
+            (&mHostData->fitness,
+             sizeof(Fitness) * mHostData->populationSize,
+             cudaHostAllocDefault));
+
     //- Allocate Elites index on the host side
     checkCudaErrors(
-            cudaHostAlloc<ElitesIdx>(&mHostData->elitesIdx,
-                                     sizeof(ElitesIdx) * mHostData->elitesSize,
-                                     cudaHostAllocDefault)
-            );
+            cudaHostAlloc<ElitesIdx>
+            (&mHostData->elitesIdx,
+             sizeof(ElitesIdx) * mHostData->elitesSize,
+             cudaHostAllocDefault));
+
 } // end of allocateMemory
 
 

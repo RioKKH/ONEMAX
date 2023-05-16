@@ -32,8 +32,18 @@ GPUEvolution::GPUEvolution(Parameters* prms)
 
     // Create populations on CPU
     //- ここで確保する配列サイズはPSEUDOの方と思われる
-    mHostParentPopulation    = new CPUPopulation(prms->getPopsize(), prms->getChromosomePseudo(), prms->getNumOfElite());
-    mHostOffspringPopulation = new CPUPopulation(prms->getPopsize(), prms->getChromosomePseudo(), prms->getNumOfElite());
+    mHostParentPopulation
+        = new CPUPopulation(
+                prms->getPopsize(),
+                prms->getChromosomePseudo(),
+                prms->getNumOfElite());
+
+    mHostOffspringPopulation
+        = new CPUPopulation(
+                prms->getPopsize(),
+                prms->getChromosomePseudo(),
+                prms->getNumOfElite());
+
     // mHostParentPopulation    = new CPUPopulation(prms->getPopsize(), prms->getChromosome(), prms->getNumOfElite());
     // mHostOffspringPopulation = new CPUPopulation(prms->getPopsize(), prms->getChromosome(), prms->getNumOfElite());
 
@@ -44,7 +54,11 @@ GPUEvolution::GPUEvolution(Parameters* prms)
         for (int j = 0; j < prms->getChromosomePseudo(); ++j)
         // for (int j = 0; j < prms->getChromosome(); ++j)
         {
-            printf("%d", mHostParentPopulation->getDeviceData()->population[i * prms->getChromosomePseudo() + j]);
+            printf("%d",
+                    mHostParentPopulation->
+                    getDeviceData()->
+                    population[i * prms->getChromosomePseudo() + j]);
+
             // printf("%d", mHostParentPopulation->getDeviceData()->population[i * prms->getChromosome() + j]);
                     prms->getChromosomePseudo() + j]);
         }
@@ -54,8 +68,18 @@ GPUEvolution::GPUEvolution(Parameters* prms)
 
     // Create populations on GPU
     //- ここで確保する配列サイズもPSEUDOの方と思われる
-    mDevParentPopulation    = new GPUPopulation(prms->getPopsize(), prms->getChromosomePseudo(), prms->getNumOfElite());
-    mDevOffspringPopulation = new GPUPopulation(prms->getPopsize(), prms->getChromosomePseudo(), prms->getNumOfElite());
+    mDevParentPopulation
+        = new GPUPopulation(
+                prms->getPopsize(),
+                prms->getChromosomePseudo(),
+                prms->getNumOfElite());
+
+    mDevOffspringPopulation
+        = new GPUPopulation(
+                prms->getPopsize(),
+                prms->getChromosomePseudo(),
+                prms->getNumOfElite());
+
     // mDevParentPopulation    = new GPUPopulation(prms->getPopsize(), prms->getChromosome(), prms->getNumOfElite());
     // mDevOffspringPopulation = new GPUPopulation(prms->getPopsize(), prms->getChromosome(), prms->getNumOfElite());
 
@@ -122,8 +146,12 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);
     std::int32_t popsize = static_cast<std::int32_t>(prms->getPopsize());
-    //- ここは結果を表示したいところなので、CHROMOSOME_ACTUALを表示するべきところと思われる
-    std::cout << popsize << "," << prms->getChromosomeActual() << "," << elapsed_time << std::endl;
+    //- ここは結果を表示したいところなので、
+    //  CHROMOSOME_ACTUALを表示するべきところと思われる
+    std::cout
+        << popsize << ","
+        << prms->getChromosomeActual()
+        << "," << elapsed_time << std::endl;
 }
 
 
@@ -148,39 +176,49 @@ void GPUEvolution::initialize(Parameters* prms)
     dim3 threads;
 
 
-    //- 初期集団生成 ------------------------------------------------------------------------------
-    // blocks.x  = prms->getPopsize() / 2;
-    // 1つのスレッドで1つの個体を初期化させるので、blocksには個体の数をそのまま登録する
+    //- 初期集団生成 ---------
+    //- blocks.x  = prms->getPopsize() / 2;
+    //- 1つのスレッドで1つの個体を初期化させるので、blocksには個体の数をそのまま登録する
     blocks.x  = prms->getPopsize();
     // blocks.x  = prms->getPopsize() / 2;
     blocks.y  = 1; blocks.z  = 1;
 
-    //- イニシャライズでは本当のサイズの範囲のみだけが対象になるので、CHROMOSOME_ACTUALとしておく
+    //- イニシャライズでは本当のサイズの範囲のみだけが対象になるので、
+    //- CHROMOSOME_ACTUALとしておく
     threads.x = 1;
     // threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
 
-    cudaGenerateFirstPopulationKernel<<<blocks, threads>>>
-                                     (mDevParentPopulation->getDeviceData(), getRandomSeed());
+    cudaGenerateFirstPopulationKernel
+        <<<blocks, threads>>>
+        (mDevParentPopulation->getDeviceData(), getRandomSeed());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
 
-    //- Fitness評価 -------------------------------------------------------------------------------
+    //- Fitness評価 ----------
     blocks.x  = prms->getPopsize();
     blocks.y  = 1;
     blocks.z  = 1;
 
-    //- Fitness評価はカスケーディングを用いるため、確保した配列全サイズで実施する必要がある。
+    //- Fitness評価はカスケーディングを用いるため、
+    //- 確保した配列全サイズで実施する必要がある。
     //- 従ってここではChromosomePseudoを用いる
     threads.x = prms->getChromosomePseudo();
     threads.y = 1;
     threads.z = 1;
 
-    evaluation<<<blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>(mDevParentPopulation->getDeviceData());
+    evaluation
+        <<<blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
+        (mDevParentPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
-    evaluation<<<blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>(mDevOffspringPopulation->getDeviceData());
+    evaluation
+        <<<blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
+        (mDevOffspringPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
 
@@ -199,10 +237,16 @@ void GPUEvolution::initialize(Parameters* prms)
             blocks.x, threads.x, blocks.x * threads.x / 2, prms->getPopsize() * 2);
 #endif // _DEBUG
 
-    pseudo_elitism<<<blocks, threads, threads.x * 2 * sizeof(int)>>>(mDevParentPopulation->getDeviceData());
+    pseudo_elitism
+        <<<blocks, threads, threads.x * 2 * sizeof(int)>>>
+        (mDevParentPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
-    pseudo_elitism<<<blocks, threads, threads.x * 2 * sizeof(int)>>>(mDevOffspringPopulation->getDeviceData());
+    pseudo_elitism
+        <<<blocks, threads, threads.x * 2 * sizeof(int)>>>
+        (mDevOffspringPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
 
@@ -261,10 +305,16 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
-    evaluation<<<blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>(mDevParentPopulation->getDeviceData());
+    evaluation
+        <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
+        (mDevParentPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
-    evaluation<<<blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>(mDevOffspringPopulation->getDeviceData());
+    evaluation
+        <<<blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
+        (mDevOffspringPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
 
@@ -282,10 +332,16 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
             blocks.x, threads.x, blocks.x * threads.x / 2, prms->getPopsize() * 2);
 #endif // _DEBUG
 
-    pseudo_elitism<<<blocks, threads, threads.x * 2 * sizeof(int)>>>(mDevParentPopulation->getDeviceData());
+    pseudo_elitism
+        <<<blocks, threads, threads.x * 2 * sizeof(int)>>>
+        (mDevParentPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
-    pseudo_elitism<<<blocks, threads, threads.x * 2 * sizeof(int)>>>(mDevOffspringPopulation->getDeviceData());
+    pseudo_elitism
+        <<<blocks, threads, threads.x * 2 * sizeof(int)>>>
+        (mDevOffspringPopulation->getDeviceData());
+
     checkAndReportCudaError(__FILE__, __LINE__);
 
 
@@ -318,8 +374,11 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.x = prms->getPopsize() / prms->getNumOfElite();
     threads.y = 1;
     threads.z = 1;
-    replaceWithElites<<<blocks, threads>>>(mDevParentPopulation->getDeviceData(),
-                      mDevOffspringPopulation->getDeviceData());
+
+    replaceWithElites
+        <<<blocks, threads>>>
+        (mDevParentPopulation->getDeviceData(),
+         mDevOffspringPopulation->getDeviceData());
 
     // swapPopulation<<<blocks, threads>>>(mDevParentPopulation->getDeviceData(),
     //                                    mDevOffspringPopulation->getDeviceData());
