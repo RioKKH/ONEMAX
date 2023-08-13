@@ -407,14 +407,17 @@ void GPUEvolution::showPopulation(Parameters* prms, std::uint16_t generation)
                             mHostParentPopulation->getMean(),
                             mHostParentPopulation->getMax(),
                             mHostParentPopulation->getMin());
-    /*
     // for (int k = 0; k < psize; ++k)
     for (int k = 0; k < esize; ++k)
     {
-        printf("elite%d : %d\n", k, mHostParentPopulation->getDeviceData()->elitesIdx[k]);
+        int tempindex = mHostParentPopulation->getDeviceData()->elitesIdx[k];
+        // printf("elite%d : %d\n", k, mHostParentPopulation->getDeviceData()->elitesIdx[k]);
+        printf("elite%d : %d , %d\n", 
+                k, tempindex, mHostParentPopulation->getDeviceData()->fitness[tempindex]);
     }
     printf("\n");
 
+    /*
     for (int i = 0; i < psize; ++i)
     {
         printf("%d,", i);
