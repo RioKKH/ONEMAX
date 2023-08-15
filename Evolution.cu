@@ -137,7 +137,7 @@ void GPUEvolution::run(Parameters* prms)
         // printf("### Number of Generations : %d ###\n", generation);
         // printf("### Generations: %d\n", generation);
         runEvolutionCycle(prms);
-        showPopulation(prms, generation);
+        // showPopulation(prms, generation);
     }
     printf("End of EvoCycle\n");
     // showPopulation(prms, generation);
