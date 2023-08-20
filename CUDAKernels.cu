@@ -292,14 +292,22 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
     RNG_4x32::ctr_type randomValues2;
 
     // Produce new offspring
+    /* 共有メモリサイズを固定する場合
+    __shared__ int parent1Idx[MAX_POP_SIZE];
+    __shared__ int parent2Idx[MAX_POP_SIZE];
+    __shared__ int randNums[CONST_TOURNAMENT_SIZE];
+    */
+    //共有メモリを動的に確保する場合
     extern __shared__ int s[];
     int *parent1Idx  = s;
     int *parent2Idx  = (int *)(&parent1Idx[gpuEvoPrms.POPSIZE]);
     int *randNums    = (int *)(&parent2Idx[gpuEvoPrms.POPSIZE]);
 
+// #if 0
     //- selection
     // 1ブロックごとに32スレッドにしている。
     // つまり1ブロック毎に最大で親32体を処理し、子供32体を生成する
+    // if ((threadIdx.y == 0) && (threadIdx.x < WARP_SIZE)) // <--ほぼ意味なし
     if (threadIdx.x < WARP_SIZE)
     {
         counter.incr();
@@ -326,9 +334,13 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
                                                     randomValues2.v[3]);
     }
     __syncthreads();
+// #endif
 
 
+// #if 0
     //- crossover
+    // if (1)
+    // if (blockIdx.x == 0 && threadIdx.x == 0)
     if (threadIdx.x < WARP_SIZE)
     {
         counter.incr();
@@ -343,7 +355,9 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
                               // randomValues1.v[2], randomValues2.v[3]);
     }
     __syncthreads();
+// #endif
 
+// #if 0
     //- mutation
     if (threadIdx.x < WARP_SIZE)
     {
@@ -365,6 +379,7 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
                         randomValues1.v[3]);
     }
     __syncthreads();
+// #endif
 }
 
 inline __device__ int getBestIndividual(

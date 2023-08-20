@@ -11,6 +11,13 @@ ifndef ARCH
 endif
 
 # アーキテクチャがサポートリストに存在するか確認する
+# ifeq (a, b) ... endif
+#   aとbが等しい場合に、次のブロックのコードが実行される
+# findstring
+#   Makefileの組み込み関数で、第1引数の文字列が第2引数の文字列の中に存在するかどうかをチェックする。
+# error
+#   Makefileの組み込み関数で、エラーメッセージを表示してMakeの実行を停止する。
+# findstringの結果が空文字列かどうかをチェックする。
 ifeq (,$(findstring $(ARCH), $(SUPPORTED_ARCHS)))
 	$(error Unknown architecture $(ARCH))
 endif

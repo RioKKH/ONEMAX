@@ -267,25 +267,34 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
                          ? prms->getPopsize() / WARP_SIZE
                          : prms->getPopsize() / WARP_SIZE + 1;
 
-    blocks.x = CHR_PER_BLOCK;
+    // blocks.x = CHR_PER_BLOCK;
+    blocks.x = 32;
     blocks.y = 1;
     blocks.z = 1;
 
-    threads.x = (prms->getPopsize() > WARP_SIZE) ? WARP_SIZE : prms->getPopsize();
+    // threads.x = (prms->getPopsize() > WARP_SIZE) ? WARP_SIZE : prms->getPopsize();
+    threads.x = 32;
     // threads.x = (prms->getPopsize() > WARP_SIZE) ? WARP_SIZE : prms->getPopsize() / 2;
     threads.y = 1;
     threads.z = 1;
 
+    // /* 共有メモリを固定サイズにして毎回確保するのをやめてみる
     int shared_memory_size =   prms->getPopsize()        * sizeof(int)
                              + prms->getPopsize()        * sizeof(int)
                              + prms->getTournamentSize() * sizeof(int);
+    // */
 
 
 #ifdef _DEBUG
     printf("Start of cudaGeneticManipulationKernel\n");
     printf("GA: blocks: %d, threads: %d\n", blocks.x, threads.x);
 #endif // _DEBUG
-    cudaGeneticManipulationKernel<<<blocks, threads, shared_memory_size>>> 
+    // /* 共有メモリを可変サイズにする
+    // cudaGeneticManipulationKernel<<<blocks, threads, shared_memory_size>>> 
+    // */
+    /* 共有メモリを固定サイズにする
+    cudaGeneticManipulationKernel<<<blocks, threads>>> 
+    */
                                  (mDevParentPopulation->getDeviceData(),
                                   mDevOffspringPopulation->getDeviceData(),
                                   getRandomSeed());
@@ -375,10 +384,12 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
+#if 1
     replaceWithElites
         <<<blocks, threads>>>
         (mDevParentPopulation->getDeviceData(),
          mDevOffspringPopulation->getDeviceData());
+#endif
 
     // swapPopulation<<<blocks, threads>>>(mDevParentPopulation->getDeviceData(),
     //                                    mDevOffspringPopulation->getDeviceData());

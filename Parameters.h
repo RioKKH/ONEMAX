@@ -9,6 +9,14 @@
 //- Warp size
 constexpr int WARP_SIZE  = 32;
 
+//- Maximum population size
+constexpr int MAX_POP_SIZE = 1024;
+
+//- Constant tournament size
+constexpr int CONST_TOURNAMENT_SIZE = 4;
+
+//- 
+
 //- Number of chromosome per block;
 // constexpr int CHR_PER_BLOCK = (BLOCK_SIZE / WARP_SIZE);
 
