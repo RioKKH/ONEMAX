@@ -99,5 +99,22 @@ __global__ void cudaGeneticManipulationKernel(PopulationData* populationDataEven
                                               PopulationData* populationDataOdd,
                                               unsigned int    randomSeed);
 
+__global__ void cudaKernelSelection(
+        PopulationData* populationData,
+        uint32_t* selectedParents1,
+        uint32_t* selectedParents2,
+        unsigned int randomSeed);
+
+__global__ void cudaKernelCrossover(
+        PopulationData* parent,
+        PopulationData* offspring,
+        uint32_t* selectedParents1,
+        uint32_t* selectedParents2,
+        unsigned int randomSeed);
+
+__global__ void cudaKernelMutation(
+        PopulationData* offspring,
+        unsigned int randomSeed);
+
 #endif // CUDA_KERNELS_H
 

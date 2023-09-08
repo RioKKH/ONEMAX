@@ -124,7 +124,7 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventCreate(&start);
     cudaEventCreate(&end);
 
-    std::uint16_t generation = 0;
+    uint16_t generation = 0;
     // printf("### Initialize\n");
     initialize(prms);
     // showPopulation(prms, generation);
@@ -137,7 +137,7 @@ void GPUEvolution::run(Parameters* prms)
         // printf("### Number of Generations : %d ###\n", generation);
         // printf("### Generations: %d\n", generation);
         runEvolutionCycle(prms);
-        // showPopulation(prms, generation);
+        showPopulation(prms, generation);
     }
     printf("End of EvoCycle\n");
     // showPopulation(prms, generation);
@@ -145,7 +145,7 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);
-    std::int32_t popsize = static_cast<std::int32_t>(prms->getPopsize());
+    uint32_t popsize = static_cast<uint32_t>(prms->getPopsize());
     //- ここは結果を表示したいところなので、
     //  CHROMOSOME_ACTUALを表示するべきところと思われる
     std::cout
@@ -222,7 +222,7 @@ void GPUEvolution::initialize(Parameters* prms)
     checkAndReportCudaError(__FILE__, __LINE__);
 
 
-    //- 疑似エリート保存戦略 ----------------------------------------------------------------------
+    //- 疑似エリート保存戦略 -------------------------------
     blocks.x  = prms->getNumOfElite();
     // blocks.x  = prms->getNumOfElite() * 2;
     blocks.y  = 1;
@@ -260,9 +260,16 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 {
     dim3 blocks;
     dim3 threads;
+
+    uint32_t *selectedParents1;
+    uint32_t *selectedParents2;
     GPUPopulation *temp;
 
-    //- Selection, Crossover, and Mutation ---------------------------------------------------------
+    // selectedParents1, 2のメモリを確保する
+    cudaMalloc(&selectedParents1, prms->getPopsize() * sizeof(int));
+    cudaMalloc(&selectedParents2, prms->getPopsize() * sizeof(int));
+
+    //- Selection, Crossover, and Mutation -----------------
     int CHR_PER_BLOCK = (prms->getPopsize() % WARP_SIZE == 0)
                          ? prms->getPopsize() / WARP_SIZE
                          : prms->getPopsize() / WARP_SIZE + 1;
@@ -291,20 +298,48 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 #endif // _DEBUG
     // /* 共有メモリを可変サイズにする
     // cudaGeneticManipulationKernel<<<blocks, threads, shared_memory_size>>> 
-    // */
     // /* 共有メモリを固定サイズにする
-    cudaGeneticManipulationKernel<<<blocks, threads>>> 
-    // */
-                                 (mDevParentPopulation->getDeviceData(),
-                                  mDevOffspringPopulation->getDeviceData(),
-                                  getRandomSeed());
+    // cudaGeneticManipulationKernel<<<blocks, threads>>> 
+    //                              (mDevParentPopulation->getDeviceData(),
+    //                               mDevOffspringPopulation->getDeviceData(),
+    //                               getRandomSeed());
+
+    // セレクション ---------------------------------------
+    blocks.x = 32; blocks.y = 1; blocks.z = 1;
+    threads.x = prms->getPopsize() / blocks.x; threads.y = 1; threads.z = 1;
+    cudaKernelSelection<<<blocks, threads>>>(
+            mDevParentPopulation->getDeviceData(),
+            selectedParents1,
+            selectedParents2,
+            getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
+
+    // クロスオーバー -------------------------------------
+    blocks.x = prms->getPopsize(); blocks.y = 1; blocks.z = 1;
+    threads.x = prms->getChromosomeActual(); threads.y = 1; threads.z = 1;
+    cudaKernelCrossover<<<blocks, threads>>>(
+            mDevParentPopulation->getDeviceData(),
+            mDevOffspringPopulation->getDeviceData(),
+            selectedParents1,
+            selectedParents2,
+            getRandomSeed());
+    checkAndReportCudaError(__FILE__, __LINE__);
+
+    // ミューテーション -----------------------------------
+    blocks.x = prms->getPopsize(); blocks.y = 1; blocks.z = 1;
+    threads.x = prms->getChromosomeActual(); threads.y = 1; threads.z = 1;
+    cudaKernelMutation<<<blocks, threads>>>(
+            mDevOffspringPopulation->getDeviceData(),
+            getRandomSeed());
+    checkAndReportCudaError(__FILE__, __LINE__);
+
+
 #ifdef _DEBUG
     printf("End of cudaGeneticManipulationKernel\n");
 #endif // _DEBUG
 
 
-    //- Fitness評価 --------------------------------------------------------------------------------
+    //- Fitness評価 ---------------------------------------
     blocks.x  = prms->getPopsize();
     blocks.y  = 1;
     blocks.z  = 1;
@@ -327,7 +362,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     checkAndReportCudaError(__FILE__, __LINE__);
 
 
-    //- 疑似エリート保存戦略 -----------------------------------------------------------------------
+    //- 疑似エリート保存戦略 -------------------------------
     blocks.x  = prms->getNumOfElite();
     // blocks.x  = prms->getNumOfElite() * 2;
     blocks.y  = 1;
@@ -397,7 +432,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 }
 
 
-void GPUEvolution::showPopulation(Parameters* prms, std::uint16_t generation)
+void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation)
 {
     // Actualが見たい時もあるだろうし、Pseudoが見たい時もあると思う。
     // とりあえず最初はPSEUDOから確認しよう
