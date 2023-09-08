@@ -273,51 +273,6 @@ __global__ void swapPopulation(PopulationData* parentPopulation,
     __syncthreads();
 }
 
-__global__ void cudaSelection(PopulationData* mParentPopulation,
-                              PopulationData* mOffspringPopulation,
-                              int* selctedParents1,
-                              int* selctedParents2,
-                              unsigned int    randomSeed)
-{
-    std::int32_t PARENTIDX = threadIdx.x + blockIdx.x * blockDim.x;
-    const int CHR_PER_BLOCK = blockDim.x;
-
-    // Init random number generator
-    RNG_4x32 rng_4x32;
-    RNG_4x32::key_type key
-        = {{static_cast<unsigned int>(threadIdx.x),
-            static_cast<unsigned int>(blockIdx.x)}};
-
-    RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
-    RNG_4x32::ctr_type randomValues1;
-    RNG_4x32::ctr_type randomValues2;
-
-    //共有メモリを動的に確保する場合
-    // extern __shared__ int s[];
-    // int *parent1Idx  = s;
-    // int *parent2Idx  = (int *)(&parent1Idx[gpuEvoPrms.POPSIZE]);
-    // int *randNums    = (int *)(&parent2Idx[gpuEvoPrms.POPSIZE]);
-
-    counter.incr();
-    randomValues1 = rng_4x32(counter, key);
-    counter.incr();
-    randomValues2 = rng_4x32(counter, key);
-
-    // 親1
-    parent1Idx[PARENTIDX] = tournamentSelection(mParentPopulation,
-                                                gpuEvoPrms.TOURNAMENT_SIZE,
-                                                randomValues1.v[0],
-                                                randomValues1.v[1],
-                                                randomValues1.v[2],
-                                                randomValues1.v[3]);
-    // 親2
-    parent2Idx[PARENTIDX] = tournamentSelection(mParentPopulation,
-                                                gpuEvoPrms.TOURNAMENT_SIZE,
-                                                randomValues2.v[0],
-                                                randomValues2.v[1],
-                                                randomValues2.v[2],
-                                                randomValues2.v[3]);
-}
 
 __global__ void cudaGeneticManipulationKernel(PopulationData* mParentPopulation,
                                               PopulationData* mOffspringPopulation,
