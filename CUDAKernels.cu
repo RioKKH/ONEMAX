@@ -333,7 +333,8 @@ __global__ void cudaKernelCrossover(
         unsigned int   randomSeed)
 {
     uint32_t PARENTIDX = blockIdx.x;
-    uint32_t CHROMOIDX = threadIdx.x + blockIdx.x * blockDim.x;
+    uint32_t CHROMOIDX = threadIdx.x;
+    // uint32_t CHROMOIDX = threadIdx.x + blockIdx.x * blockDim.x;
     // Ensure the index is within the population size
     if (PARENTIDX >= parent->populationSize || CHROMOIDX >= parent->chromosomeSize) {
         return;

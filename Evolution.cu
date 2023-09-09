@@ -137,9 +137,9 @@ void GPUEvolution::run(Parameters* prms)
         // printf("### Number of Generations : %d ###\n", generation);
         // printf("### Generations: %d\n", generation);
         runEvolutionCycle(prms);
-        showPopulation(prms, generation);
+        // showPopulation(prms, generation);
     }
-    printf("End of EvoCycle\n");
+    // printf("End of EvoCycle\n");
     // showPopulation(prms, generation);
 
     cudaEventRecord(end, 0);
@@ -261,14 +261,19 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     dim3 blocks;
     dim3 threads;
 
-    uint32_t *selectedParents1;
-    uint32_t *selectedParents2;
+    // uint32_t *h_selectedParents1, *h_selectedParents2;
     GPUPopulation *temp;
 
-    // selectedParents1, 2のメモリを確保する
-    cudaMalloc(&selectedParents1, prms->getPopsize() * sizeof(int));
-    cudaMalloc(&selectedParents2, prms->getPopsize() * sizeof(int));
+    // h_selectedParents1, 2のメモリを確保する
+    uint32_t *h_selectedParents1 = new uint32_t[prms->getPopsize()];
+    uint32_t *h_selectedParents2 = new uint32_t[prms->getPopsize()];
 
+    // d_selectedParents1, 2のメモリを確保する
+    uint32_t *d_selectedParents1, *d_selectedParents2;
+    cudaMalloc(&d_selectedParents1, prms->getPopsize() * sizeof(uint32_t));
+    cudaMalloc(&d_selectedParents2, prms->getPopsize() * sizeof(uint32_t));
+
+#if 0
     //- Selection, Crossover, and Mutation -----------------
     int CHR_PER_BLOCK = (prms->getPopsize() % WARP_SIZE == 0)
                          ? prms->getPopsize() / WARP_SIZE
@@ -290,12 +295,9 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
                              + prms->getPopsize()        * sizeof(int)
                              + prms->getTournamentSize() * sizeof(int);
     // */
+#endif
 
 
-#ifdef _DEBUG
-    printf("Start of cudaGeneticManipulationKernel\n");
-    printf("GA: blocks: %d, threads: %d\n", blocks.x, threads.x);
-#endif // _DEBUG
     // /* 共有メモリを可変サイズにする
     // cudaGeneticManipulationKernel<<<blocks, threads, shared_memory_size>>> 
     // /* 共有メモリを固定サイズにする
@@ -309,10 +311,21 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.x = prms->getPopsize() / blocks.x; threads.y = 1; threads.z = 1;
     cudaKernelSelection<<<blocks, threads>>>(
             mDevParentPopulation->getDeviceData(),
-            selectedParents1,
-            selectedParents2,
+            d_selectedParents1,
+            d_selectedParents2,
             getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
+
+#if 0
+    // selectedParents1, 2の中身を表示してみる
+    printf("selectedParents1, 2\n");
+    cudaMemcpy(h_selectedParents1, d_selectedParents1, prms->getPopsize() * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_selectedParents2, d_selectedParents2, prms->getPopsize() * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < prms->getPopsize(); ++i)
+    {
+        printf("%4d, %4d\n", h_selectedParents1[i], h_selectedParents2[i]);
+    }
+#endif
 
     // クロスオーバー -------------------------------------
     blocks.x = prms->getPopsize(); blocks.y = 1; blocks.z = 1;
@@ -320,8 +333,8 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     cudaKernelCrossover<<<blocks, threads>>>(
             mDevParentPopulation->getDeviceData(),
             mDevOffspringPopulation->getDeviceData(),
-            selectedParents1,
-            selectedParents2,
+            d_selectedParents1,
+            d_selectedParents2,
             getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
 
@@ -332,12 +345,6 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
             mDevOffspringPopulation->getDeviceData(),
             getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
-
-
-#ifdef _DEBUG
-    printf("End of cudaGeneticManipulationKernel\n");
-#endif // _DEBUG
-
 
     //- Fitness評価 ---------------------------------------
     blocks.x  = prms->getPopsize();
@@ -371,6 +378,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.x = prms->getPopsize() / prms->getNumOfElite();
     threads.y = 1;
     threads.z = 1;
+
 #ifdef _DEBUG
     printf("blocks.x:%d, threads.x:%d, offset:%d, shared_memory_size:%d\n",
             blocks.x, threads.x, blocks.x * threads.x / 2, prms->getPopsize() * 2);
@@ -419,12 +427,10 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
-#if 1
     replaceWithElites
         <<<blocks, threads>>>
         (mDevParentPopulation->getDeviceData(),
          mDevOffspringPopulation->getDeviceData());
-#endif
 
     // swapPopulation<<<blocks, threads>>>(mDevParentPopulation->getDeviceData(),
     //                                    mDevOffspringPopulation->getDeviceData());
@@ -454,16 +460,18 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation)
                             mHostParentPopulation->getMax(),
                             mHostParentPopulation->getMin());
     // for (int k = 0; k < psize; ++k)
+    printf("============ Generation: %d ============ \n", generation);
+    printf("------------ Parent:%d ------------ \n", generation);
+    int tempindex = 0;
     for (int k = 0; k < esize; ++k)
     {
-        int tempindex = mHostParentPopulation->getDeviceData()->elitesIdx[k];
+        tempindex = mHostParentPopulation->getDeviceData()->elitesIdx[k];
         // printf("elite%d : %d\n", k, mHostParentPopulation->getDeviceData()->elitesIdx[k]);
         printf("elite%d : %d , %d\n", 
                 k, tempindex, mHostParentPopulation->getDeviceData()->fitness[tempindex]);
     }
     printf("\n");
 
-    /*
     for (int i = 0; i < psize; ++i)
     {
         printf("%d,", i);
@@ -473,13 +481,13 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation)
         }
         printf(":%d\n", mHostParentPopulation->getDeviceData()->fitness[i]);
     }
-    */
 
-    /*
     printf("------------ Offspring:%d ------------ \n", generation);
     for (int k = 0; k < esize; ++k)
     {
-        printf("elite%d : %d\n", k, mHostOffspringPopulation->getDeviceData()->elitesIdx[k]);
+        tempindex = mHostParentPopulation->getDeviceData()->elitesIdx[k];
+        printf("elite%d : %d, %d\n",
+                k, tempindex, mHostOffspringPopulation->getDeviceData()->elitesIdx[k]);
     }
     printf("\n");
     
@@ -492,7 +500,6 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation)
         }
         printf(":%d\n", mHostOffspringPopulation->getDeviceData()->fitness[i]);
     }
-    */
 }
 
 
