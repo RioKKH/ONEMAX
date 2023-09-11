@@ -53,13 +53,16 @@ protected:
     unsigned int mRandomSeed;
 
     // Population odd
+    CPUPopulation* mHostTempPopulation;
     CPUPopulation* mHostParentPopulation;
     CPUPopulation* mHostOffspringPopulation;
+
+    GPUPopulation* mDevTempPopulation;
     GPUPopulation* mDevParentPopulation;
     GPUPopulation* mDevOffspringPopulation;
 
     // Show the population
-    void showPopulation(Parameters* prms, std::uint16_t generation);
+    void showPopulation(Parameters* prms, std::uint16_t generation, std::uint16_t type);
 
 }; // end of GPU_Evolution
 

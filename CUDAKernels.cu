@@ -169,6 +169,92 @@ __global__ void replaceWithElites(
         PopulationData *parentPopulation,
         PopulationData *offspringPopulation)
 {
+    const uint32_t NUM_OF_ELITE = gpuEvoPrms.NUM_OF_ELITE;
+    uint32_t geneIdx = threadIdx.x;
+    uint32_t eliteIdx = blockIdx.x;
+
+    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / NUM_OF_ELITE;
+    uint32_t offspringIdx = eliteIdx * ELITE_INTERVAL;
+    uint32_t ELITE_OFFSET
+        = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[eliteIdx];
+    uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * offspringIdx;
+
+    offspringPopulation->population[OFFSET + geneIdx]
+        = parentPopulation->population[ELITE_OFFSET + geneIdx];
+
+    if (geneIdx == 0) {
+        offspringPopulation->fitness[offspringIdx]
+            = parentPopulation->fitness[parentPopulation->elitesIdx[eliteIdx]];
+    }
+}
+
+
+__global__ void replaceWithElites2(
+        PopulationData *parentPopulation,
+        PopulationData *offspringPopulation)
+{
+    uint32_t idx = blockDim.x * blockIdx.x + threadIdx.x;
+    uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * idx;
+
+    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE;
+    uint32_t ELITE_INDEX = idx / ELITE_INTERVAL;
+    uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[ELITE_INDEX];
+
+    bool shouldReplace = (idx % ELITE_INTERVAL == 0);
+    // Use predicated execution to avoid warp divergence
+    for (int i = 0; i < gpuEvoPrms.CHROMOSOME_PSEUDO; ++i)
+    {
+        offspringPopulation->population[OFFSET + i] = shouldReplace ?
+            parentPopulation->population[ELITE_OFFSET + i] :
+            offspringPopulation->population[OFFSET + i];
+    }
+
+    if (shouldReplace) {
+        offspringPopulation->fitness[idx] = parentPopulation->fitness[parentPopulation->elitesIdx[ELITE_INDEX]];
+    }
+}
+
+
+__global__ void replaceWithElitesNew1(
+        PopulationData *parentPopulation,
+        PopulationData *offspringPopulation)
+{
+    uint32_t tx = threadIdx.x;
+    uint32_t idx = threadIdx.x + blockIdx.x * blockDim.x;
+    uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * threadIdx.x;
+    const uint32_t POP_PER_THR = gpuEvoPrms.POPSIZE / blockDim.x;
+
+    // Shared memory to store elite indices
+    extern __shared__ uint32_t sharedElites[];
+
+    if (tx < gpuEvoPrms.NUM_OF_ELITE) {
+        sharedElites[tx] = parentPopulation->elitesIdx[tx];
+    }
+    __syncthreads();
+
+    uint32_t ELITE_INDEX = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
+    uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * sharedElites[ELITE_INDEX];
+
+    // Use predicated execution to avoid warp divergence
+    bool shouldReplace = (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0);
+
+    for (int i = 0; i < gpuEvoPrms.CHROMOSOME_PSEUDO; ++i)
+    {
+        offspringPopulation->population[OFFSET + i]
+            = shouldReplace ? parentPopulation->population[ELITE_OFFSET + i]
+                            : offspringPopulation->population[OFFSET + i];
+    }
+    if (shouldReplace) {
+        offspringPopulation->fitness[idx]
+            = parentPopulation->fitness[sharedElites[ELITE_INDEX]];
+    }
+    __syncthreads();
+}
+
+__global__ void replaceWithElitesOld(
+        PopulationData *parentPopulation,
+        PopulationData *offspringPopulation)
+{
     uint32_t tx  = threadIdx.x;
     uint32_t idx = blockDim.x * blockIdx.x + threadIdx.x;
     uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * threadIdx.x;
@@ -199,6 +285,7 @@ __global__ void replaceWithElites(
 //         printf("swap target:%d, src eindex:%d, src eoffset:%d\n", idx, ELITE_INDEX, ELITE_OFFSET);
 // #endif // _DEBUG
 
+/*
 __global__ void swapPopulation(PopulationData* parentPopulation,
                                PopulationData* offspringPopulation)
 {
@@ -272,6 +359,7 @@ __global__ void swapPopulation(PopulationData* parentPopulation,
     }
     __syncthreads();
 }
+*/
 
 __global__ void cudaKernelSelection(
         PopulationData* mParentPopulation,

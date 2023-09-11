@@ -30,7 +30,7 @@ CPPINCLUDE=-I./Common
 #CPPINCLUDE=-I./Common  -I/usr/include/c++/9/
 CFLAGS=
 LDFLAGS =
-debug=
+debug =
 #debug= -g -D_DEBUG
 
 APPS = gpuonemax
