@@ -136,7 +136,7 @@ void GPUEvolution::run(Parameters* prms)
     {
         // std::cout << "### Generation" << generation << std::endl;
         runEvolutionCycle(prms);
-        // showPopulation(prms, generation, 0);
+        showPopulation(prms, generation, 0);
     }
     // std::cout << "End of EvoCycle" << std::endl;
     // showPopulation(prms, generation, 2);
