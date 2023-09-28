@@ -186,6 +186,68 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     extern __shared__ volatile int s_fitness[];
 
     // shared memoryにデータを読み込み
+    s_fitness[localFitnessIdx]          = populationData->fitness[globalFitnessIdx];
+    s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
+    __syncthreads();
+
+    // Warp単位でのリダクション
+    if (localFitnessIdx < 32) {
+        volatile int* warpShared = s_fitness + (localFitnessIdx / 32) * 32;
+        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 16]) {
+            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 16];
+            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 16 + OFFSET];
+        }
+        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 8]) {
+            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 8];
+            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 8 + OFFSET];
+        }
+        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 4]) {
+            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 4];
+            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 4 + OFFSET];
+        }
+        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 2]) {
+            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 2];
+            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 2 + OFFSET];
+        }
+        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 1]) {
+            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 1];
+            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 1 + OFFSET];
+        }
+    }
+    __syncthreads();
+
+    // ブロック単位でのリダクション
+    for (int stride = OFFSET/2; stride >= 32; stride >>= 1)
+    {
+        if (localFitnessIdx < stride)
+        {
+            unsigned int index =
+                (s_fitness[localFitnessIdx] >= s_fitness[localFitnessIdx + stride])
+                ? localFitnessIdx : localFitnessIdx + stride;
+
+            s_fitness[localFitnessIdx]          = s_fitness[index];
+            s_fitness[localFitnessIdx + OFFSET] = s_fitness[index + OFFSET];
+        }
+        __syncthreads();
+    }
+
+    if (localFitnessIdx == 0 && blockIdx.x < gridDim.x)
+    {
+        populationData->elitesIdx[numOfEliteIdx] = s_fitness[localFitnessIdx + OFFSET];
+    }
+}
+
+
+__global__ void pseudo_elitismOrg(PopulationData* populationData)
+{
+    int numOfEliteIdx     = blockIdx.x;  // index of elite
+    int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
+    int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
+    const int OFFSET      = blockDim.x;  // size of NUM_OF_ELITE
+
+    extern __shared__ volatile int s_fitness[];
+
+    // shared memoryにデータを読み込み
     // ブロック数はElite数の２倍。
     s_fitness[localFitnessIdx]          = populationData->fitness[globalFitnessIdx];
     s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
@@ -308,7 +370,7 @@ __global__ void replaceWithElitesOld(
     // uint32_t tx  = threadIdx.x;
     uint32_t idx = blockDim.x * blockIdx.x + threadIdx.x;
     uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * threadIdx.x;
-    const uint32_t POP_PER_THR = gpuEvoPrms.POPSIZE / blockDim.x;
+    // const uint32_t POP_PER_THR = gpuEvoPrms.POPSIZE / blockDim.x;
 
     if (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0)
     {

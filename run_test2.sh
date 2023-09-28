@@ -4,6 +4,8 @@ CWD=$(pwd); readonly CWD
 
 POPULATION=$(seq 32 32 1024); readonly POPULATION
 CHROMOSOME=$(seq 32 32 1024); readonly CHROMOSOME
+#POPULATION="32 64 128 256 512 1024"; readonly POPULATION
+#CHROMOSOME="32 64 128 256 512 1024"; readonly CHROMOSOME
 DATETIME=$(date +%Y%m%d-%H%M%S); readonly DATETIME
 #readonly CHROMOSOME="32 64 128 256 512 1024"
 readonly PARAMSFILE=${CWD}/onemax.prms

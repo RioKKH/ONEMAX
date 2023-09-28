@@ -1,9 +1,9 @@
 #ifndef MISC_H
 #define MISC_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "Parameters.hpp"
+// #include <stdio.h>
+// #include <stdlib.h>
+#include "Parameters.h"
 // #include "CUDAKernels.h"
 
 int my_rand(void);
@@ -18,5 +18,7 @@ void showPopulationOnCPU(int *population,
                          Parameters *prms);
 
 void showSummaryOnCPU(int gen, int *fitness, Parameters *prms);
+
+void printDeviceInfo();
 
 #endif // MISC_H

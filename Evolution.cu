@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/time.h>
 
 #include <cuda.h>
@@ -25,6 +26,16 @@ GPUEvolution::GPUEvolution(Parameters* prms)
     //- Get parameters of the device
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, mDeviceIdx);
+
+    char hostname[1024];
+    gethostname(hostname, 1024);
+    std::cout << "# Running on host: " << hostname << std::endl;
+    std::cout << "# Device " << mDeviceIdx << ": " << prop.name << std::endl;
+    std::cout << "# Compute capability: " << prop.major << "." << prop.minor << std::endl;
+    std::cout << "# Total global memory: " << prop.totalGlobalMem / (1024 * 1024) << " MB" << std::endl;
+    std::cout << "# Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
+    std::cout << "# Number of SMs: " << prop.multiProcessorCount << std::endl;
+
 
     // Create populations on CPU
     //- ここで確保する配列サイズはPSEUDOの方と思われる
@@ -136,7 +147,7 @@ void GPUEvolution::run(Parameters* prms)
     {
         // std::cout << "### Generation" << generation << std::endl;
         runEvolutionCycle(prms);
-        showPopulation(prms, generation, 0);
+        // showPopulation(prms, generation, 0);
     }
     // std::cout << "End of EvoCycle" << std::endl;
     // showPopulation(prms, generation, 2);
