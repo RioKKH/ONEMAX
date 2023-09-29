@@ -111,11 +111,36 @@ GPUEvolution::GPUEvolution(Parameters* prms)
  */
 GPUEvolution::~GPUEvolution()
 {
+    // if (mHostTempPopulation) {
+    //     delete mHostTempPopulation;
+    //     mHostTempPopulation = nullptr;
+    // }
+    // if (mHostParentPopulation) {
+    //     delete mHostParentPopulation;
+    //     mHostParentPopulation = nullptr;
+    // }
+    // if (mHostOffspringPopulation) {
+    //     delete mHostOffspringPopulation;
+    //     mHostOffspringPopulation = nullptr;
+    // }
+    // 
+    // if (mDevTempPopulation) {
+    //     delete mDevTempPopulation;
+    //     mDevTempPopulation = nullptr;
+    // }
+    // if (mDevParentPopulation) {
+    //     delete mDevParentPopulation;
+    //     mDevParentPopulation = nullptr;
+    // }
+    // if (mDevOffspringPopulation) {
+    //     delete mDevOffspringPopulation;
+    //     mDevOffspringPopulation = nullptr;
+    // }
     delete mHostTempPopulation;
     delete mHostParentPopulation;
     delete mHostOffspringPopulation;
 
-    delete mDevTempPopulation;
+    // delete mDevTempPopulation;
     // delete mDevParentPopulation;
     // delete mDevOffspringPopulation;
 } // end of Destructor
@@ -147,10 +172,10 @@ void GPUEvolution::run(Parameters* prms)
     {
         // std::cout << "### Generation" << generation << std::endl;
         runEvolutionCycle(prms);
-        // showPopulation(prms, generation, 0);
+        showPopulation(prms, generation, 0);
     }
     // std::cout << "End of EvoCycle" << std::endl;
-    // showPopulation(prms, generation, 2);
+    showPopulation(prms, generation, 2);
 
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
