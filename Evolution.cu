@@ -169,7 +169,7 @@ void GPUEvolution::run(Parameters* prms)
         // showPopulation(prms, generation, 0);
     }
     // std::cout << "End of EvoCycle" << std::endl;
-    // showPopulation(prms, generation, 2);
+    showPopulation(prms, generation, 2);
 
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
@@ -292,6 +292,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     blocks.y  = 1;
     blocks.z  = 1;
 
+    // threads.x = prms->getChromosomePseudo();
     threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
