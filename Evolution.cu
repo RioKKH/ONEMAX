@@ -1,4 +1,6 @@
 #include <iostream>
+#include <algorithm>
+#include <numeric>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -111,36 +113,39 @@ GPUEvolution::GPUEvolution(Parameters* prms)
  */
 GPUEvolution::~GPUEvolution()
 {
-    // if (mHostTempPopulation) {
-    //     delete mHostTempPopulation;
-    //     mHostTempPopulation = nullptr;
-    // }
-    // if (mHostParentPopulation) {
-    //     delete mHostParentPopulation;
-    //     mHostParentPopulation = nullptr;
-    // }
-    // if (mHostOffspringPopulation) {
-    //     delete mHostOffspringPopulation;
-    //     mHostOffspringPopulation = nullptr;
-    // }
-    // 
-    // if (mDevTempPopulation) {
-    //     delete mDevTempPopulation;
-    //     mDevTempPopulation = nullptr;
-    // }
-    // if (mDevParentPopulation) {
-    //     delete mDevParentPopulation;
-    //     mDevParentPopulation = nullptr;
-    // }
-    // if (mDevOffspringPopulation) {
-    //     delete mDevOffspringPopulation;
-    //     mDevOffspringPopulation = nullptr;
-    // }
+    /**
+    if (mHostTempPopulation != nullptr)
+    {
+        delete mHostTempPopulation;
+    }
+    if (mHostParentPopulation != nullptr)
+    {
+        delete mHostParentPopulation;
+    }
+    if (mHostOffspringPopulation != nullptr)
+    {
+        delete mHostOffspringPopulation;
+    }
+    */
     delete mHostTempPopulation;
     delete mHostParentPopulation;
     delete mHostOffspringPopulation;
 
-    // delete mDevTempPopulation;
+    /**
+    if (mDevTempPopulation != nullptr)
+    {
+        delete mDevTempPopulation;
+    }
+    if (mDevParentPopulation != nullptr)
+    {
+        delete mDevParentPopulation;
+    }
+    if (mDevOffspringPopulation != nullptr)
+    {
+        delete mDevOffspringPopulation;
+    }
+    */
+    delete mDevTempPopulation;
     // delete mDevParentPopulation;
     // delete mDevOffspringPopulation;
 } // end of Destructor
@@ -172,7 +177,7 @@ void GPUEvolution::run(Parameters* prms)
     {
         // std::cout << "### Generation" << generation << std::endl;
         runEvolutionCycle(prms);
-        showPopulation(prms, generation, 0);
+        // showPopulation(prms, generation, 0);
     }
     // std::cout << "End of EvoCycle" << std::endl;
     showPopulation(prms, generation, 2);
@@ -180,12 +185,7 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);
-    uint32_t popsize = static_cast<uint32_t>(prms->getPopsize());
-    //- ここは結果を表示したいところなので、
-    //  CHROMOSOME_ACTUALを表示するべきところと思われる
-    std::cout << popsize
-        << "," << prms->getChromosomeActual()
-        << "," << elapsed_time << std::endl;
+    showSummary(*prms, elapsed_time);
 }
 
 
@@ -303,6 +303,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     blocks.y  = 1;
     blocks.z  = 1;
 
+    // threads.x = prms->getChromosomePseudo();
     threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
@@ -368,6 +369,52 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     // temp = mDevParentPopulation;
     mDevParentPopulation = mDevOffspringPopulation;
     // mDevOffspringPopulation = temp;
+}
+
+void GPUEvolution::showSummary(const Parameters& prms, const float& elapsedTime)
+{
+    dim3 blocks;
+    dim3 threads;
+
+    //- Fitness評価 ---------------------------------------
+    blocks.x = prms.getPopsize();
+    blocks.y = 1;
+    blocks.z = 1;
+
+    //- evaluation では遺伝子配列に対してカスケーディングを用いるためPSEUDOを用いる
+    threads.x = prms.getChromosomePseudo();
+    threads.y = 1;
+    threads.z = 1;
+
+    evaluation
+        <<<blocks, threads, prms.getChromosomePseudo() * sizeof(int)>>>
+        (mDevOffspringPopulation->getDeviceData());
+    mDevOffspringPopulation->copyFromDevice(mHostOffspringPopulation->getDeviceData());
+    checkAndReportCudaError(__FILE__, __LINE__);
+
+    uint32_t* maxElementPtr
+        = std::max_element(mHostOffspringPopulation->getDeviceData()->fitness,
+                mHostOffspringPopulation->getDeviceData()->fitness + prms.getPopsize());
+
+    uint32_t* minElementPtr
+        = std::min_element(mHostOffspringPopulation->getDeviceData()->fitness,
+                mHostOffspringPopulation->getDeviceData()->fitness + prms.getPopsize());
+
+    double fitnessSum
+        = std::accumulate(mHostOffspringPopulation->getDeviceData()->fitness,
+                mHostOffspringPopulation->getDeviceData()->fitness + prms.getPopsize(),
+                0.0) / prms.getPopsize();
+
+    std::cout 
+        << prms.getPopsize()
+        << "," << prms.getChromosomeActual()
+        << "," << elapsedTime
+        << "," << *maxElementPtr
+        << "," << *minElementPtr
+        << "," << fitnessSum
+        << std::endl;
+
+    return;
 }
 
 

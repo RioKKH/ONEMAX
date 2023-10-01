@@ -276,13 +276,13 @@ CPUPopulation::~CPUPopulation()
     delete mHostData;
 } // end of ~CPUPopulation
 
-std::int32_t CPUPopulation::getMax()
+int32_t CPUPopulation::getMax()
 {
     return *std::max_element(mHostData->fitness,
                              mHostData->fitness + mHostData->populationSize);
 }
 
-std::int32_t CPUPopulation::getMin()
+int32_t CPUPopulation::getMin()
 {
     return *std::min_element(mHostData->fitness,
                              mHostData->fitness + mHostData->populationSize);
