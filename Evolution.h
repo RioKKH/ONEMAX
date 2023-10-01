@@ -61,6 +61,9 @@ protected:
     GPUPopulation* mDevParentPopulation;
     GPUPopulation* mDevOffspringPopulation;
 
+    // Show the summary of population
+    void showSummary(const Parameters& prms, const float& elapsed_time);
+
     // Show the population
     void showPopulation(Parameters* prms, std::uint16_t generation, std::uint16_t type);
 
