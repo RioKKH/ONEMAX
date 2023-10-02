@@ -86,7 +86,7 @@ __global__ void cudaCallRandomNumber(unsigned int randomSeed);
 
 //__global__ void cudaGenerateFirstPopulationKernel(PopulationData* populationDataEven,
 //                                                  PopulationData* populationDataOdd,
-__global__ void cudaGenerateFirstPopulationKernel(PopulationData* populationData,
+__global__ void cudaKernelGenerateFirstPopulation(PopulationData* populationData,
                                                   unsigned int    randomSeed);
 
 /**

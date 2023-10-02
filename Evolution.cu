@@ -41,21 +41,26 @@ GPUEvolution::GPUEvolution(Parameters* prms)
 
     // Create populations on CPU
     //- ここで確保する配列サイズはPSEUDOの方と思われる
+    // 遺伝子配列はevaluationでカスケーディングを用いるため、
+    // 2の冪乗のサイズにしておく必要がある
     mHostTempPopulation
         = new CPUPopulation(
                 prms->getPopsize(),
+                // prms->getChromosomeActual(),
                 prms->getChromosomePseudo(),
                 prms->getNumOfElite());
 
     mHostParentPopulation
         = new CPUPopulation(
                 prms->getPopsize(),
+                // prms->getChromosomeActual(),
                 prms->getChromosomePseudo(),
                 prms->getNumOfElite());
 
     mHostOffspringPopulation
         = new CPUPopulation(
                 prms->getPopsize(),
+                // prms->getChromosomeActual(),
                 prms->getChromosomePseudo(),
                 prms->getNumOfElite());
 
@@ -82,18 +87,21 @@ GPUEvolution::GPUEvolution(Parameters* prms)
     mDevTempPopulation
         = new GPUPopulation(
                 prms->getPopsize(),
+                // prms->getChromosomeActual(),
                 prms->getChromosomePseudo(),
                 prms->getNumOfElite());
 
     mDevParentPopulation
         = new GPUPopulation(
                 prms->getPopsize(),
+                // prms->getChromosomeActual(),
                 prms->getChromosomePseudo(),
                 prms->getNumOfElite());
 
     mDevOffspringPopulation
         = new GPUPopulation(
                 prms->getPopsize(),
+                // prms->getChromosomeActual(),
                 prms->getChromosomePseudo(),
                 prms->getNumOfElite());
 
@@ -165,9 +173,9 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventCreate(&end);
 
     uint16_t generation = 0;
-    // printf("### Initialize\n");
+    printf("### Initialize\n");
     initialize(prms);
-    // showPopulation(prms, generation, 1);
+    showPopulation(prms, generation, 1);
 
     // 実行時間測定開始
     cudaEventRecord(start, 0);
@@ -177,9 +185,9 @@ void GPUEvolution::run(Parameters* prms)
     {
         // std::cout << "### Generation" << generation << std::endl;
         runEvolutionCycle(prms);
-        // showPopulation(prms, generation, 0);
+        showPopulation(prms, generation, 0);
     }
-    // std::cout << "End of EvoCycle" << std::endl;
+    std::cout << "End of EvoCycle" << std::endl;
     showPopulation(prms, generation, 2);
 
     cudaEventRecord(end, 0);
@@ -224,7 +232,7 @@ void GPUEvolution::initialize(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
-    cudaGenerateFirstPopulationKernel
+    cudaKernelGenerateFirstPopulation
         <<<blocks, threads>>>
         (mDevParentPopulation->getDeviceData(), getRandomSeed());
 
@@ -256,14 +264,14 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     blocks.z  = 1;
 
     //- evaluation では遺伝子配列に対してカスケーディングを用いるためPSEUDOを用いる
-    threads.x = prms->getChromosomeActual();
-    // threads.x = prms->getChromosomePseudo();
+    // threads.x = prms->getChromosomeActual();
+    threads.x = prms->getChromosomePseudo();
     threads.y = 1;
     threads.z = 1;
 
     evaluation
-        <<< blocks, threads, prms->getChromosomeActual() * sizeof(int)>>>
-        // <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
+        // <<< blocks, threads, prms->getChromosomeActual() * sizeof(int)>>>
+        <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
         (mDevParentPopulation->getDeviceData());
 
     checkAndReportCudaError(__FILE__, __LINE__);
@@ -356,11 +364,11 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
-    replaceWithElites
-        <<<blocks, threads>>>
-        // <<<blocks, threads, sizeof(uint32_t) * prms->getNumOfElite()>>>
-        (mDevParentPopulation->getDeviceData(),
-         mDevOffspringPopulation->getDeviceData());
+    // replaceWithElites
+    //     <<<blocks, threads>>>
+    //     // <<<blocks, threads, sizeof(uint32_t) * prms->getNumOfElite()>>>
+    //     (mDevParentPopulation->getDeviceData(),
+    //      mDevOffspringPopulation->getDeviceData());
 
     // checkAndReportCudaError(__FILE__, __LINE__);
 
@@ -431,13 +439,15 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation, uint16_
     //- evaluation では遺伝子配列に対してカスケーディングを用いるためPSEUDOを用いる
     // printf("prms->getChromosomeActual():%d\n", prms->getChromosomeActual());
     // printf("prms->getChromosomePseudo():%d\n", prms->getChromosomePseudo());
-    threads.x = prms->getChromosomePseudo();
+    // threads.x = prms->getChromosomePseudo();
+    threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
 
     if (type == 0) {
         evaluation
-            <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
+            <<< blocks, threads, prms->getChromosomeActual() * sizeof(int)>>>
+            // <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
             (mDevTempPopulation->getDeviceData());
         mDevTempPopulation->copyFromDevice(mHostTempPopulation->getDeviceData());
     } else if (type == 1) {

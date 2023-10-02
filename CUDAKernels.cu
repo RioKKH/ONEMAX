@@ -58,7 +58,7 @@ inline __device__ RNG_2x32::ctr_type generateTwoRndValues(unsigned int key,
 } // end of TwoRandomINTs
 
 
-__global__ void cudaGenerateFirstPopulationKernel(
+__global__ void cudaKernelGenerateFirstPopulation(
         PopulationData* populationData,
         unsigned int    randomSeed)
 {
@@ -69,7 +69,8 @@ __global__ void cudaGenerateFirstPopulationKernel(
     RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
     RNG_4x32::ctr_type randomValues;
 
-    uint32_t offset = blockIdx.x * gpuEvoPrms.CHROMOSOME_PSEUDO;
+    uint32_t offset = blockIdx.x * gpuEvoPrms.CHROMOSOME_ACTUAL;
+    // uint32_t offset = blockIdx.x * gpuEvoPrms.CHROMOSOME_PSEUDO;
     uint32_t stride = gpuEvoPrms.CHROMOSOME_ACTUAL / 4;
 
     // #pragma unroll // を使うこともできるが、具体的に書き下す事をここでは選択した
@@ -456,11 +457,13 @@ __global__ void cudaKernelCrossover(
 {
     uint32_t PARENTIDX = blockIdx.x;
     uint32_t CHROMOIDX = threadIdx.x;
+    // printf("ParentIdx: %d, ChromosomeIdx: %d, parentCsize: %d, offspringCsize %d\n",
+    //         PARENTIDX, CHROMOIDX, parent->chromosomeSize, offspring->chromosomeSize);
     // uint32_t CHROMOIDX = threadIdx.x + blockIdx.x * blockDim.x;
     // Ensure the index is within the population size
-    if (PARENTIDX >= parent->populationSize || CHROMOIDX >= parent->chromosomeSize) {
-        return;
-    }
+    // if (PARENTIDX >= parent->populationSize || CHROMOIDX >= parent->chromosomeSize) {
+    //     return;
+    // }
 
     // // Init randome number generator
     RNG_4x32 rng_4x32;
@@ -474,15 +477,21 @@ __global__ void cudaKernelCrossover(
     RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
     RNG_4x32::ctr_type randomValues1;
 
-    counter.incr();
+    // counter.incr();
     randomValues1 = rng_4x32(counter, key);
 
     uint32_t crossoveridx1 = randomValues1.v[0] % (parent->chromosomeSize);
     uint32_t crossoveridx2 = randomValues1.v[1] % (parent->chromosomeSize);
+    // uint32_t crossoveridx1 = 32;
+    // uint32_t crossoveridx2 = 64;
+
     swap(crossoveridx1, crossoveridx2);
+    // printf("%d, %d\n", crossoveridx1, crossoveridx2);
     
     uint32_t parent1idx = selectedParents1[PARENTIDX];
     uint32_t parent2idx = selectedParents2[PARENTIDX];
+    // uint32_t parent1idx = 0;
+    // uint32_t parent2idx = 1;
 
     // Warpダイバージェンスを避けるための条件
     // この書き方をすれば、どのスレッドも同じ条件分岐を通ることになる為、
