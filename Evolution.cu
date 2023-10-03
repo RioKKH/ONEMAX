@@ -264,13 +264,17 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     blocks.z  = 1;
 
     //- evaluation では遺伝子配列に対してカスケーディングを用いるためPSEUDOを用いる
-    // threads.x = prms->getChromosomeActual();
+#if 0
+    printf("Chromosome size at evaluation: %d:%d\n",
+            prms->getChromosomeActual(),
+            prms->getChromosomePseudo());
+#endif
+
     threads.x = prms->getChromosomePseudo();
     threads.y = 1;
     threads.z = 1;
 
     evaluation
-        // <<< blocks, threads, prms->getChromosomeActual() * sizeof(int)>>>
         <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
         (mDevParentPopulation->getDeviceData());
 
@@ -278,6 +282,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     mDevTempPopulation   = mDevParentPopulation;
 
     // セレクション ---------------------------------------
+    // セレクションのブロックサイズとスレッドサイズは経験的に決める
     blocks.x = 32;
     blocks.y = 1;
     blocks.z = 1;
@@ -311,7 +316,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     blocks.y  = 1;
     blocks.z  = 1;
 
-    // threads.x = prms->getChromosomePseudo();
+    // クロスオーバーに使う遺伝子長はActualの方
     threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
@@ -437,16 +442,13 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation, uint16_
     blocks.z  = 1;
 
     //- evaluation では遺伝子配列に対してカスケーディングを用いるためPSEUDOを用いる
-    // printf("prms->getChromosomeActual():%d\n", prms->getChromosomeActual());
-    // printf("prms->getChromosomePseudo():%d\n", prms->getChromosomePseudo());
-    // threads.x = prms->getChromosomePseudo();
-    threads.x = prms->getChromosomeActual();
+    threads.x = prms->getChromosomePseudo();
     threads.y = 1;
     threads.z = 1;
 
     if (type == 0) {
         evaluation
-            <<< blocks, threads, prms->getChromosomeActual() * sizeof(int)>>>
+            <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
             // <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
             (mDevTempPopulation->getDeviceData());
         mDevTempPopulation->copyFromDevice(mHostTempPopulation->getDeviceData());
@@ -466,7 +468,8 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation, uint16_
     // Actualが見たい時もあるだろうし、Pseudoが見たい時もあると思う。
     // とりあえず最初はPSEUDOから確認しよう
     // int csize = prms->getChromosomePseudo();
-    int csize = prms->getChromosomeActual();
+    int acsize = prms->getChromosomeActual();
+    int pcsize = prms->getChromosomePseudo();
     int psize = prms->getPopsize();
     int esize = prms->getNumOfElite();
 
@@ -504,14 +507,14 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation, uint16_
     for (int i = 0; i < psize; ++i)
     {
         printf("%d,", i);
-        for (int j = 0; j < csize; ++j)
+        for (int j = 0; j < acsize; ++j)
         {
             if (type == 0) {
-                printf("%d", mHostTempPopulation->getDeviceData()->population[i * csize + j]);
+                printf("%d", mHostTempPopulation->getDeviceData()->population[i * pcsize + j]);
             } else if (type == 1) {
-                printf("%d", mHostParentPopulation->getDeviceData()->population[i * csize + j]);
+                printf("%d", mHostParentPopulation->getDeviceData()->population[i * pcsize + j]);
             } else if (type == 2) {
-                printf("%d", mHostOffspringPopulation->getDeviceData()->population[i * csize + j]);
+                printf("%d", mHostOffspringPopulation->getDeviceData()->population[i * pcsize + j]);
             }
         }
         if (type == 0) {

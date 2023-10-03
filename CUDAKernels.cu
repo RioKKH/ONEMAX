@@ -480,6 +480,8 @@ __global__ void cudaKernelCrossover(
     // counter.incr();
     randomValues1 = rng_4x32(counter, key);
 
+    // ここで使われているchromosomeSizeはPseudoChromosomeSizeであることに注意
+    // printf("parent->chromosomeSize: %d\n", parent->chromosomeSize);
     uint32_t crossoveridx1 = randomValues1.v[0] % (parent->chromosomeSize);
     uint32_t crossoveridx2 = randomValues1.v[1] % (parent->chromosomeSize);
     // uint32_t crossoveridx1 = 32;
