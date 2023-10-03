@@ -31,12 +31,12 @@ GPUEvolution::GPUEvolution(Parameters* prms)
 
     char hostname[1024];
     gethostname(hostname, 1024);
-    std::cout << "# Running on host: " << hostname << std::endl;
-    std::cout << "# Device " << mDeviceIdx << ": " << prop.name << std::endl;
-    std::cout << "# Compute capability: " << prop.major << "." << prop.minor << std::endl;
-    std::cout << "# Total global memory: " << prop.totalGlobalMem / (1024 * 1024) << " MB" << std::endl;
-    std::cout << "# Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
-    std::cout << "# Number of SMs: " << prop.multiProcessorCount << std::endl;
+    // std::cout << "# Running on host: " << hostname << std::endl;
+    // std::cout << "# Device " << mDeviceIdx << ": " << prop.name << std::endl;
+    // std::cout << "# Compute capability: " << prop.major << "." << prop.minor << std::endl;
+    // std::cout << "# Total global memory: " << prop.totalGlobalMem / (1024 * 1024) << " MB" << std::endl;
+    // std::cout << "# Max threads per block: " << prop.maxThreadsPerBlock << std::endl;
+    // std::cout << "# Number of SMs: " << prop.multiProcessorCount << std::endl;
 
 
     // Create populations on CPU
@@ -173,9 +173,9 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventCreate(&end);
 
     uint16_t generation = 0;
-    printf("### Initialize\n");
+    // printf("### Initialize\n");
     initialize(prms);
-    showPopulation(prms, generation, 1);
+    // showPopulation(prms, generation, 1);
 
     // 実行時間測定開始
     cudaEventRecord(start, 0);
@@ -369,13 +369,13 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
-    // replaceWithElites
-    //     <<<blocks, threads>>>
-    //     // <<<blocks, threads, sizeof(uint32_t) * prms->getNumOfElite()>>>
-    //     (mDevParentPopulation->getDeviceData(),
-    //      mDevOffspringPopulation->getDeviceData());
+    replaceWithElites
+        <<<blocks, threads>>>
+        // <<<blocks, threads, sizeof(uint32_t) * prms->getNumOfElite()>>>
+        (mDevParentPopulation->getDeviceData(),
+         mDevOffspringPopulation->getDeviceData());
 
-    // checkAndReportCudaError(__FILE__, __LINE__);
+    checkAndReportCudaError(__FILE__, __LINE__);
 
     //- 親と子の入れ替え -----------------------------------
     // swap population between parents and offsprings
@@ -485,7 +485,6 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation, uint16_
                             mHostParentPopulation->getMin());
 
     printf("============ Generation: %d ============ \n", generation);
-    printf("------------ Parent:%d ------------ \n", generation);
     int tempindex = 0;
     int tempvalue = 0;
     for (int k = 0; k < esize; ++k)
@@ -504,10 +503,10 @@ void GPUEvolution::showPopulation(Parameters* prms, uint16_t generation, uint16_
     }
     printf("\n");
 
-    for (int i = 0; i < psize; ++i)
+    for (int i = 0; i < psize; ++i) // Population size
     {
-        printf("%d,", i);
-        for (int j = 0; j < acsize; ++j)
+        printf("%3d,", i);
+        for (int j = 0; j < acsize; ++j) // Actual chromosome size
         {
             if (type == 0) {
                 printf("%d", mHostTempPopulation->getDeviceData()->population[i * pcsize + j]);

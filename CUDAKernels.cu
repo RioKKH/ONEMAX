@@ -15,9 +15,7 @@ typedef r123::Philox4x32 RNG_4x32;
 __device__ RNG_2x32::ctr_type generateTwoRndValues(unsigned int key,
                                                    unsigned int counter);
 
-// __constant__ long RANDMAX = 4294967295;
 __constant__ int64_t RANDMAX = 4294967295;
-// __constant__ std::int64_t RANDMAX = 4294967295;
 __constant__ EvolutionParameters gpuEvoPrms;
 
 
@@ -69,8 +67,9 @@ __global__ void cudaKernelGenerateFirstPopulation(
     RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
     RNG_4x32::ctr_type randomValues;
 
-    uint32_t offset = blockIdx.x * gpuEvoPrms.CHROMOSOME_ACTUAL;
-    // uint32_t offset = blockIdx.x * gpuEvoPrms.CHROMOSOME_PSEUDO;
+    // offsetは遺伝子配列をPSEUDOの長さで扱わないといけない。
+    uint32_t offset = blockIdx.x * gpuEvoPrms.CHROMOSOME_PSEUDO;
+    // strideは実際にビット情報が入っている領域、つまりCHROMOSOME_ACTUALの長さで扱う。
     uint32_t stride = gpuEvoPrms.CHROMOSOME_ACTUAL / 4;
 
     // #pragma unroll // を使うこともできるが、具体的に書き下す事をここでは選択した
@@ -407,7 +406,8 @@ __global__ void cudaKernelSelection(
     // const int CHR_PER_BLOCK = blockDim.x;
 
     // Ensure the index is within the population size
-    if (PARENTIDX >= mParentPopulation->populationSize) {
+    // if (PARENTIDX >= mParentPopulation->populationSize) {
+    if (PARENTIDX >= gpuEvoPrms.POPSIZE) {
         return;
     }
 
@@ -457,13 +457,6 @@ __global__ void cudaKernelCrossover(
 {
     uint32_t PARENTIDX = blockIdx.x;
     uint32_t CHROMOIDX = threadIdx.x;
-    // printf("ParentIdx: %d, ChromosomeIdx: %d, parentCsize: %d, offspringCsize %d\n",
-    //         PARENTIDX, CHROMOIDX, parent->chromosomeSize, offspring->chromosomeSize);
-    // uint32_t CHROMOIDX = threadIdx.x + blockIdx.x * blockDim.x;
-    // Ensure the index is within the population size
-    // if (PARENTIDX >= parent->populationSize || CHROMOIDX >= parent->chromosomeSize) {
-    //     return;
-    // }
 
     // // Init randome number generator
     RNG_4x32 rng_4x32;
@@ -477,35 +470,30 @@ __global__ void cudaKernelCrossover(
     RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
     RNG_4x32::ctr_type randomValues1;
 
-    // counter.incr();
+    counter.incr();
     randomValues1 = rng_4x32(counter, key);
+    printf("%e\n", randomValues1.v[0]);
 
     // ここで使われているchromosomeSizeはPseudoChromosomeSizeであることに注意
-    // printf("parent->chromosomeSize: %d\n", parent->chromosomeSize);
-    uint32_t crossoveridx1 = randomValues1.v[0] % (parent->chromosomeSize);
-    uint32_t crossoveridx2 = randomValues1.v[1] % (parent->chromosomeSize);
-    // uint32_t crossoveridx1 = 32;
-    // uint32_t crossoveridx2 = 64;
+    uint32_t crossoveridx1 = randomValues1.v[0] % (gpuEvoPrms.CHROMOSOME_ACTUAL);
+    uint32_t crossoveridx2 = randomValues1.v[1] % (gpuEvoPrms.CHROMOSOME_ACTUAL);
+    // printf("crossoveridx1: %d, crossoveridx2: %d\n", crossoveridx1, crossoveridx2);
 
     swap(crossoveridx1, crossoveridx2);
-    // printf("%d, %d\n", crossoveridx1, crossoveridx2);
     
     uint32_t parent1idx = selectedParents1[PARENTIDX];
     uint32_t parent2idx = selectedParents2[PARENTIDX];
-    // uint32_t parent1idx = 0;
-    // uint32_t parent2idx = 1;
 
     // Warpダイバージェンスを避けるための条件
     // この書き方をすれば、どのスレッドも同じ条件分岐を通ることになる為、
     // Warpダイバージェンスが発生しない
     bool isParent1 = (CHROMOIDX < crossoveridx1) || (CHROMOIDX >= crossoveridx2);
-    // bool isParent2 = (CHROMOIDX >= crossoveridx1) && (CHROMOIDX < crossoveridx2);
 
-    if (CHROMOIDX < parent->chromosomeSize)
+    if (CHROMOIDX < gpuEvoPrms.CHROMOSOME_PSEUDO)
     {
-        offspring->population[PARENTIDX * offspring->chromosomeSize + CHROMOIDX]
-            = isParent1 ? parent->population[parent1idx * parent->chromosomeSize + CHROMOIDX]
-                        : parent->population[parent2idx * parent->chromosomeSize + CHROMOIDX];
+        offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX]
+            = isParent1 ? parent->population[parent1idx * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX]
+                        : parent->population[parent2idx * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX];
     }
 }
 
@@ -514,18 +502,21 @@ __global__ void cudaKernelMutation(
         PopulationData* offspring,
         unsigned int   randomSeed)
 {
-    uint32_t offspringIdx = blockIdx.x;
-    uint32_t geneIdx = threadIdx.x;
+    uint32_t PARENTIDX = blockIdx.x;
+    uint32_t CHROMOIDX = threadIdx.x;
     // Ensure the index is within the population size
     // つまり1つのブロックには4スレッドだけ処理させることにする
-    if (offspringIdx >= offspring->populationSize || geneIdx >= 4) {
-        return;
-    }
+    // if (offspringIdx >= offspring->populationSize || geneIdx >= 4) {
+    //     return;
+    // }
 
     // Init random number generator
     RNG_4x32 rng_4x32;
     RNG_4x32::key_type key = {
-        {static_cast<unsigned int>(threadIdx.x), static_cast<unsigned int>(blockIdx.x)}
+        {
+            static_cast<unsigned int>(threadIdx.x),
+            static_cast<unsigned int>(blockIdx.x)
+        }
     };
 
     RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
@@ -533,17 +524,23 @@ __global__ void cudaKernelMutation(
 
     counter.incr();
     randomValues = rng_4x32(counter, key);
+    printf("%f\n", randomValues.v[0]);
 
-    uint32_t genePosition = randomValues.v[geneIdx] % (offspring->chromosomeSize);
-    bool shouldMutate = randomValues.v[geneIdx] < gpuEvoPrms.MUTATION_RATE;
+    // uint32_t genePosition = randomValues.v[CHROMOIDX] % (offspring->chromosomeSize);
+    // uint32_t genePosition = randomValues.v[CHROMOIDX] % (gpuEvoPrms.CHROMOSOME_ACTUAL);
+    // printf("randomValues.v[0]: %.12f, gpuEvoPrms.MUTATION_RATE: %f\n", randomValues.v[0], gpuEvoPrms.MUTATION_RATE);
+    bool shouldMutate = randomValues.v[0] < gpuEvoPrms.MUTATION_RATE;
 
     // Warpダイバージェンスを避けるための条件
     bool isOriginal = !shouldMutate;
     // bool isMutated = shouldMutate;
 
-    offspring->population[offspringIdx * offspring->chromosomeSize + genePosition]
-        = isOriginal ?  offspring->population[offspringIdx * offspring->chromosomeSize + genePosition]
-                     : ~offspring->population[offspringIdx * offspring->chromosomeSize + genePosition];
+    if (CHROMOIDX < gpuEvoPrms.CHROMOSOME_ACTUAL)
+    {
+        offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX]
+            = isOriginal ?  offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX]
+                         : ~offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX];
+    }
 }
 
 
