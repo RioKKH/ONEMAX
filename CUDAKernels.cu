@@ -4,10 +4,12 @@
 #include <cuda_runtime.h>
 
 #include "Random123/philox.h"
-#include "Random123/uniform.hpp"
+// #include "Random123/uniform.hpp"
 #include "CUDAKernels.h"
 #include "Parameters.h"
 #include "Population.h"
+
+using namespace r123;
 
 typedef r123::Philox2x32 RNG_2x32;
 typedef r123::Philox4x32 RNG_4x32;
@@ -15,8 +17,9 @@ typedef r123::Philox4x32 RNG_4x32;
 __device__ RNG_2x32::ctr_type generateTwoRndValues(unsigned int key,
                                                    unsigned int counter);
 
-__constant__ int64_t RANDMAX = 4294967295;
+__constant__ uint32_t RANDMAX = 4294967295;
 __constant__ EvolutionParameters gpuEvoPrms;
+
 
 
 void copyToDevice(EvolutionParameters cpuEvoPrms)
@@ -60,11 +63,13 @@ __global__ void cudaKernelGenerateFirstPopulation(
         PopulationData* populationData,
         unsigned int    randomSeed)
 {
-    RNG_4x32 rng_4x32;
+    const int geneIdx = threadIdx.x;
+    const int chromosomeIdx = threadIdx.x + blockIdx.x * blockDim.x;
+
+    RNG_4x32  rng_4x32;
     RNG_4x32::key_type key
-        = {{static_cast<unsigned int>(threadIdx.x),
-            static_cast<unsigned int>(blockIdx.x)}};
-    RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
+        = {{static_cast<unsigned int>(geneIdx), static_cast<unsigned int>(chromosomeIdx)}};
+    RNG_4x32::ctr_type counter = {{0, 0, randomSeed ,0xbeeff00d}};
     RNG_4x32::ctr_type randomValues;
 
     // offsetは遺伝子配列をPSEUDOの長さで扱わないといけない。
@@ -80,6 +85,8 @@ __global__ void cudaKernelGenerateFirstPopulation(
         // Iteration 1
         counter.incr();
         randomValues = rng_4x32(counter, key);
+        // printf("randomValues: %u %u %u %u\n",
+        //         randomValues.v[0], randomValues.v[1], randomValues.v[2], randomValues.v[3]);
         populationData->population[offset +              i    ] = randomValues.v[0] % 2;
         populationData->population[offset + stride     + i    ] = randomValues.v[1] % 2;
         populationData->population[offset + stride * 2 + i    ] = randomValues.v[2] % 2;
@@ -114,8 +121,8 @@ __global__ void cudaKernelGenerateFirstPopulation(
 
 __global__ void evaluation(PopulationData* populationData)
 {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int tx  = threadIdx.x;
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int tx  = threadIdx.x;
 
     // 共有メモリの配列要素数をカーネル起動時に動的に決定
     extern __shared__ volatile int s_idata[];
@@ -178,9 +185,9 @@ __global__ void evaluation(PopulationData* populationData)
 
 __global__ void pseudo_elitism(PopulationData* populationData)
 {
-    int numOfEliteIdx     = blockIdx.x;  // index of elite
-    int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
-    int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
+    const int numOfEliteIdx     = blockIdx.x;  // index of elite
+    const int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
+    const int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
     const int OFFSET      = blockDim.x;  // size of NUM_OF_ELITE
 
     extern __shared__ volatile int s_fitness[];
@@ -240,9 +247,9 @@ __global__ void pseudo_elitism(PopulationData* populationData)
 
 __global__ void pseudo_elitismOrg(PopulationData* populationData)
 {
-    int numOfEliteIdx     = blockIdx.x;  // index of elite
-    int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
-    int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
+    const int numOfEliteIdx     = blockIdx.x;  // index of elite
+    const int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
+    const int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
     const int OFFSET      = blockDim.x;  // size of NUM_OF_ELITE
 
     extern __shared__ volatile int s_fitness[];
@@ -282,8 +289,8 @@ __global__ void replaceWithElites(
         PopulationData *offspringPopulation)
 {
     const uint32_t NUM_OF_ELITE = gpuEvoPrms.NUM_OF_ELITE;
-    uint32_t geneIdx = threadIdx.x;
-    uint32_t eliteIdx = blockIdx.x;
+    const uint32_t geneIdx = threadIdx.x;
+    const uint32_t eliteIdx = blockIdx.x;
 
     uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / NUM_OF_ELITE;
     uint32_t offspringIdx = eliteIdx * ELITE_INTERVAL;
@@ -368,8 +375,8 @@ __global__ void replaceWithElitesOld(
         PopulationData *offspringPopulation)
 {
     // uint32_t tx  = threadIdx.x;
-    uint32_t idx = blockDim.x * blockIdx.x + threadIdx.x;
-    uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * threadIdx.x;
+    const uint32_t idx = blockDim.x * blockIdx.x + threadIdx.x;
+    const uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * threadIdx.x;
     // const uint32_t POP_PER_THR = gpuEvoPrms.POPSIZE / blockDim.x;
 
     if (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0)
@@ -402,7 +409,7 @@ __global__ void cudaKernelSelection(
         uint32_t* selectedParents2,
         unsigned int    randomSeed)
 {
-    uint32_t PARENTIDX = threadIdx.x + blockIdx.x * blockDim.x;
+    const uint32_t PARENTIDX = threadIdx.x + blockIdx.x * blockDim.x;
     // const int CHR_PER_BLOCK = blockDim.x;
 
     // Ensure the index is within the population size
@@ -416,7 +423,7 @@ __global__ void cudaKernelSelection(
     RNG_4x32::key_type key = {
         {
             static_cast<unsigned int>(threadIdx.x),
-            static_cast<unsigned int>(blockIdx.x)
+            static_cast<unsigned int>(PARENTIDX)
         }
     };
 
@@ -428,6 +435,11 @@ __global__ void cudaKernelSelection(
     randomValues1 = rng_4x32(counter, key);
     counter.incr();
     randomValues2 = rng_4x32(counter, key);
+
+    // printf("randomValues1: %u %u %u %u\n",
+    //         randomValues1.v[0], randomValues1.v[1], randomValues1.v[2], randomValues1.v[3]);
+    // printf("randomValues2: %u %u %u %u\n",
+    //         randomValues2.v[0], randomValues2.v[1], randomValues2.v[2], randomValues2.v[3]);
 
     // 親1
     selectedParents1[PARENTIDX] = tournamentSelection(
@@ -455,15 +467,15 @@ __global__ void cudaKernelCrossover(
         uint32_t* selectedParents2,
         unsigned int   randomSeed)
 {
-    uint32_t PARENTIDX = blockIdx.x;
-    uint32_t CHROMOIDX = threadIdx.x;
+    const uint32_t PARENTIDX = blockIdx.x;
+    const uint32_t CHROMOIDX = threadIdx.x;
 
     // // Init randome number generator
     RNG_4x32 rng_4x32;
     RNG_4x32::key_type key = {
         {
             static_cast<unsigned int>(threadIdx.x),
-            static_cast<unsigned int>(blockIdx.x)
+            static_cast<unsigned int>(threadIdx.x + blockIdx.x * blockDim.x)
         }
     };
 
@@ -472,14 +484,15 @@ __global__ void cudaKernelCrossover(
 
     counter.incr();
     randomValues1 = rng_4x32(counter, key);
-    printf("%e\n", randomValues1.v[0]);
+    // printf("randomValues1: %u %u %u %u\n",
+    //         randomValues1.v[0], randomValues1.v[1], randomValues1.v[2], randomValues1.v[3]);
 
     // ここで使われているchromosomeSizeはPseudoChromosomeSizeであることに注意
     uint32_t crossoveridx1 = randomValues1.v[0] % (gpuEvoPrms.CHROMOSOME_ACTUAL);
     uint32_t crossoveridx2 = randomValues1.v[1] % (gpuEvoPrms.CHROMOSOME_ACTUAL);
-    // printf("crossoveridx1: %d, crossoveridx2: %d\n", crossoveridx1, crossoveridx2);
 
     swap(crossoveridx1, crossoveridx2);
+    // printf("crossoveridx1: %d, crossoveridx2: %d\n", crossoveridx1, crossoveridx2);
     
     uint32_t parent1idx = selectedParents1[PARENTIDX];
     uint32_t parent2idx = selectedParents2[PARENTIDX];
@@ -502,34 +515,15 @@ __global__ void cudaKernelMutation(
         PopulationData* offspring,
         unsigned int   randomSeed)
 {
-    uint32_t PARENTIDX = blockIdx.x;
-    uint32_t CHROMOIDX = threadIdx.x;
-    // Ensure the index is within the population size
-    // つまり1つのブロックには4スレッドだけ処理させることにする
-    // if (offspringIdx >= offspring->populationSize || geneIdx >= 4) {
-    //     return;
-    // }
+    const uint32_t PARENTIDX = blockIdx.x;
+    const uint32_t CHROMOIDX = threadIdx.x;
+    const uint32_t idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-    // Init random number generator
-    RNG_4x32 rng_4x32;
-    RNG_4x32::key_type key = {
-        {
-            static_cast<unsigned int>(threadIdx.x),
-            static_cast<unsigned int>(blockIdx.x)
-        }
-    };
+    const RNG_2x32::ctr_type randomValues = generateTwoRndValues(idx, randomSeed);
 
-    RNG_4x32::ctr_type counter = {{0, 0, randomSeed, 0xbeeff00d}};
-    RNG_4x32::ctr_type randomValues;
-
-    counter.incr();
-    randomValues = rng_4x32(counter, key);
-    printf("%f\n", randomValues.v[0]);
-
-    // uint32_t genePosition = randomValues.v[CHROMOIDX] % (offspring->chromosomeSize);
-    // uint32_t genePosition = randomValues.v[CHROMOIDX] % (gpuEvoPrms.CHROMOSOME_ACTUAL);
-    // printf("randomValues.v[0]: %.12f, gpuEvoPrms.MUTATION_RATE: %f\n", randomValues.v[0], gpuEvoPrms.MUTATION_RATE);
-    bool shouldMutate = randomValues.v[0] < gpuEvoPrms.MUTATION_RATE;
+    bool shouldMutate = ((double)randomValues.v[0] / RANDMAX) < gpuEvoPrms.MUTATION_RATE;
+    // printf("randomValues: %f %f %d\n",
+    //         (double)randomValues.v[0] / RANDMAX, gpuEvoPrms.MUTATION_RATE, shouldMutate);
 
     // Warpダイバージェンスを避けるための条件
     bool isOriginal = !shouldMutate;
@@ -538,8 +532,8 @@ __global__ void cudaKernelMutation(
     if (CHROMOIDX < gpuEvoPrms.CHROMOSOME_ACTUAL)
     {
         offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX]
-            = isOriginal ?  offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX]
-                         : ~offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX];
+            = isOriginal ? offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX]
+                         : offspring->population[PARENTIDX * gpuEvoPrms.CHROMOSOME_PSEUDO + CHROMOIDX] ^ 1;
     }
 }
 
@@ -575,14 +569,16 @@ inline __device__ int tournamentSelection(
 {
     // トーナメントサイズは4で固定とする。
     // これはrand123が一度に返すことが出来る乱数の最大個数が4のため。
-    unsigned int idx1 = random1 % populationData->populationSize;
-    unsigned int idx2 = random2 % populationData->populationSize;
-    unsigned int idx3 = random3 % populationData->populationSize;
-    unsigned int idx4 = random4 % populationData->populationSize;
+    unsigned int idx1 = random1 % gpuEvoPrms.POPSIZE;
+    unsigned int idx2 = random2 % gpuEvoPrms.POPSIZE;
+    unsigned int idx3 = random3 % gpuEvoPrms.POPSIZE;
+    unsigned int idx4 = random4 % gpuEvoPrms.POPSIZE;
+    // unsigned int idx1 = random1 % populationData->populationSize;
+    // unsigned int idx2 = random2 % populationData->populationSize;
+    // unsigned int idx3 = random3 % populationData->populationSize;
+    // unsigned int idx4 = random4 % populationData->populationSize;
     int bestIdx = getBestIndividual(populationData, idx1, idx2, idx3, idx4);
-#ifdef _DEBUG
-    printf("tournamentSelection: %d,%d,%d,%d,%d\n", bestIdx, idx1, idx2, idx3, idx4);
-#endif // _DEBUG
+    // printf("tournamentSelection: %d,%d,%d,%d,%d\n", bestIdx, idx1, idx2, idx3, idx4);
     return bestIdx;
 }
 

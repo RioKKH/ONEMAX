@@ -121,38 +121,10 @@ GPUEvolution::GPUEvolution(Parameters* prms)
  */
 GPUEvolution::~GPUEvolution()
 {
-    /**
-    if (mHostTempPopulation != nullptr)
-    {
-        delete mHostTempPopulation;
-    }
-    if (mHostParentPopulation != nullptr)
-    {
-        delete mHostParentPopulation;
-    }
-    if (mHostOffspringPopulation != nullptr)
-    {
-        delete mHostOffspringPopulation;
-    }
-    */
     delete mHostTempPopulation;
     delete mHostParentPopulation;
     delete mHostOffspringPopulation;
 
-    /**
-    if (mDevTempPopulation != nullptr)
-    {
-        delete mDevTempPopulation;
-    }
-    if (mDevParentPopulation != nullptr)
-    {
-        delete mDevParentPopulation;
-    }
-    if (mDevOffspringPopulation != nullptr)
-    {
-        delete mDevOffspringPopulation;
-    }
-    */
     delete mDevTempPopulation;
     // delete mDevParentPopulation;
     // delete mDevOffspringPopulation;
@@ -185,10 +157,10 @@ void GPUEvolution::run(Parameters* prms)
     {
         // std::cout << "### Generation" << generation << std::endl;
         runEvolutionCycle(prms);
-        showPopulation(prms, generation, 0);
+        // showPopulation(prms, generation, 0);
     }
-    std::cout << "End of EvoCycle" << std::endl;
-    showPopulation(prms, generation, 2);
+    // std::cout << "End of EvoCycle" << std::endl;
+    // showPopulation(prms, generation, 2);
 
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
@@ -247,7 +219,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 {
     dim3 blocks;
     dim3 threads;
-    GPUPopulation* temp;
+    // GPUPopulation* temp;
 
     // h_selectedParents1, 2のメモリを確保する
     uint32_t *h_selectedParents1 = new uint32_t[prms->getPopsize()];
