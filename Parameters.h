@@ -26,7 +26,9 @@ constexpr int CONST_TOURNAMENT_SIZE = 4;
  */
 typedef struct
 {
-    int POPSIZE;
+    // int POPSIZE;
+    int POPSIZE_ACTUAL;
+    int POPSIZE_PSEUDO;
     int CHROMOSOME_ACTUAL;
     int CHROMOSOME_PSEUDO;
     int NUM_OF_GENERATIONS;
@@ -54,7 +56,9 @@ public:
     ~Parameters() {}
 
     void loadParams(void);
-    int getPopsize(void) const;
+    int getPopsizeActual(void) const;
+    int getPopsizePseudo(void) const;
+    // int getPopsize(void) const;
     int getChromosomeActual(void) const;
     int getChromosomePseudo(void) const;
     int getNumOfGenerations(void) const;

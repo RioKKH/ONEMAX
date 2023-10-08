@@ -25,7 +25,8 @@ __constant__ EvolutionParameters gpuEvoPrms;
 void copyToDevice(EvolutionParameters cpuEvoPrms)
 {
 #ifdef _DEBUG
-    printf("copyToDevice %d\n", cpuEvoPrms.POPSIZE);
+    printf("copyToDevice %d\n", cpuEvoPrms.POPSIZE_ACTUAL);
+    // printf("copyToDevice %d\n", cpuEvoPrms.POPSIZE);
 #endif // _DEBUG
     cudaMemcpyToSymbol(gpuEvoPrms,
                        &cpuEvoPrms,
@@ -182,8 +183,53 @@ __global__ void evaluation(PopulationData* populationData)
 //     }
 // }
 
-
 __global__ void pseudo_elitism(PopulationData* populationData)
+{
+    const int OFFSET           = blockDim.x;  // Population size for each elite, 20
+    const int EliteIdx         = blockIdx.x;  // index of elite
+    const int localFitnessIdx  = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
+    const int globalFitnessIdx = threadIdx.x + blockIdx.x * blockDim.x; // Population size
+    const int ACTUALPOPSIZE    = gpuEvoPrms.POPSIZE_ACTUAL;
+
+    extern __shared__ volatile int s_fitness[];
+
+    // shared memoryにデータを読み込み
+    if (localFitnessIdx < gpuEvoPrms.POPSIZE_ACTUAL)
+    {
+        s_fitness[localFitnessIdx] = populationData->fitness[globalFitnessIdx];
+        s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
+    }
+    else
+    {
+        s_fitness[localFitnessIdx] = 0;
+        s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
+    }
+    __syncthreads();
+
+    // グロック単位でのリダクション
+    for (int stride = OFFSET/2; stride >= 1; stride >>= 1)
+    {
+        if (localFitnessIdx < stride)
+        {
+            unsigned int index =
+                (s_fitness[localFitnessIdx] >= s_fitness[localFitnessIdx + stride])
+                ? localFitnessIdx : localFitnessIdx + stride;
+
+            s_fitness[localFitnessIdx]          = s_fitness[index];
+            s_fitness[localFitnessIdx + OFFSET] = s_fitness[index + OFFSET];
+        }
+        __syncthreads();
+    }
+
+    if (localFitnessIdx == 0 && blockIdx.x < gridDim.x)
+    {
+        populationData->elitesIdx[EliteIdx] = s_fitness[OFFSET];
+    }
+}
+
+
+
+__global__ void pseudo_elitism20231009(PopulationData* populationData)
 {
     const int EliteIdx     = blockIdx.x;  // index of elite
     const int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
@@ -199,6 +245,7 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     s_fitness[localFitnessIdx] = populationData->fitness[EliteIdx * OFFSET + localFitnessIdx];
     //        0 ~ 19             0~7        20       0 ~ 19
     s_fitness[localFitnessIdx] = EliteIdx * OFFSET + localFitnessIdx;
+    // 上の配列の
     __syncthreads();
 
 
@@ -305,7 +352,9 @@ __global__ void replaceWithElites(
     const uint32_t eliteIdx = blockIdx.x;
 
     // 何個体ごとにエリートを選択するかを計算する。
-    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / NUM_OF_ELITE;
+    // こちらは実際の個体数で計算する。
+    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_ACTUAL / NUM_OF_ELITE;
+    // uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / NUM_OF_ELITE;
     // Offspringの何個体目の個体をエリートで置き換えるかを計算する。
     uint32_t offspringIdx = eliteIdx * ELITE_INTERVAL;
 
@@ -334,7 +383,8 @@ __global__ void replaceWithElites2(
     uint32_t idx = blockDim.x * blockIdx.x + threadIdx.x;
     uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * idx;
 
-    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE;
+    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_ACTUAL / gpuEvoPrms.NUM_OF_ELITE;
+    // uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE;
     uint32_t ELITE_INDEX = idx / ELITE_INTERVAL;
     uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[ELITE_INDEX];
 
@@ -370,11 +420,13 @@ __global__ void replaceWithElitesNew1(
     }
     __syncthreads();
 
-    uint32_t ELITE_INDEX = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
+    uint32_t ELITE_INDEX = idx / (gpuEvoPrms.POPSIZE_ACTUAL / gpuEvoPrms.NUM_OF_ELITE);
+    // uint32_t ELITE_INDEX = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
     uint32_t ELITE_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * sharedElites[ELITE_INDEX];
 
     // Use predicated execution to avoid warp divergence
-    bool shouldReplace = (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0);
+    bool shouldReplace = (idx % (gpuEvoPrms.POPSIZE_ACTUAL / gpuEvoPrms.NUM_OF_ELITE) == 0);
+    // bool shouldReplace = (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0);
 
     for (int i = 0; i < gpuEvoPrms.CHROMOSOME_PSEUDO; ++i)
     {
@@ -398,10 +450,12 @@ __global__ void replaceWithElitesOrg(
     const uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * threadIdx.x;
     // const uint32_t POP_PER_THR = gpuEvoPrms.POPSIZE / blockDim.x;
 
-    if (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0)
+    if (idx % (gpuEvoPrms.POPSIZE_ACTUAL / gpuEvoPrms.NUM_OF_ELITE) == 0)
+    // if (idx % (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE) == 0)
     {
         uint32_t ELITE_INDEX
-            = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
+            = idx / (gpuEvoPrms.POPSIZE_ACTUAL / gpuEvoPrms.NUM_OF_ELITE);
+            // = idx / (gpuEvoPrms.POPSIZE / gpuEvoPrms.NUM_OF_ELITE);
         uint32_t ELITE_OFFSET
             = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[ELITE_INDEX];
 
@@ -433,7 +487,8 @@ __global__ void cudaKernelSelection(
 
     // Ensure the index is within the population size
     // if (PARENTIDX >= mParentPopulation->populationSize) {
-    if (PARENTIDX >= gpuEvoPrms.POPSIZE) {
+    if (PARENTIDX >= gpuEvoPrms.POPSIZE_ACTUAL) {
+    // if (PARENTIDX >= gpuEvoPrms.POPSIZE) {
         return;
     }
 
@@ -588,10 +643,10 @@ inline __device__ int tournamentSelection(
 {
     // トーナメントサイズは4で固定とする。
     // これはrand123が一度に返すことが出来る乱数の最大個数が4のため。
-    unsigned int idx1 = random1 % gpuEvoPrms.POPSIZE;
-    unsigned int idx2 = random2 % gpuEvoPrms.POPSIZE;
-    unsigned int idx3 = random3 % gpuEvoPrms.POPSIZE;
-    unsigned int idx4 = random4 % gpuEvoPrms.POPSIZE;
+    unsigned int idx1 = random1 % gpuEvoPrms.POPSIZE_ACTUAL;
+    unsigned int idx2 = random2 % gpuEvoPrms.POPSIZE_ACTUAL;
+    unsigned int idx3 = random3 % gpuEvoPrms.POPSIZE_ACTUAL;
+    unsigned int idx4 = random4 % gpuEvoPrms.POPSIZE_ACTUAL;
     // unsigned int idx1 = random1 % populationData->populationSize;
     // unsigned int idx2 = random2 % populationData->populationSize;
     // unsigned int idx3 = random3 % populationData->populationSize;

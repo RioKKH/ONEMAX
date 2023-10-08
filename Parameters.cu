@@ -19,7 +19,8 @@ void Parameters::loadParams()
     {
         if (std::regex_match(line, results, rePOPSIZE))
         {
-            cpuEvoPrms.POPSIZE = std::stoi(results[1].str());
+            cpuEvoPrms.POPSIZE_ACTUAL = std::stoi(results[1].str());
+            // cpuEvoPrms.POPSIZE = std::stoi(results[1].str());
         }
         else if (std::regex_match(line, results, reCHROMOSOME))
         {
@@ -50,20 +51,50 @@ void Parameters::loadParams()
     //- ここで確保する遺伝子メモリサイズを決定する
     for (int i = 5; i <= 10; ++i)
     {
+        // CHR_ACTUAL が 2のべき乗の場合
         if (cpuEvoPrms.CHROMOSOME_ACTUAL == (1 << i))
         {
+            // CHR_PSEUDO は CHR_ACTUAL と同様に2のべき乗とする
             cpuEvoPrms.CHROMOSOME_PSEUDO = (1 << i);
+            break;
         }
+        // CHROMOSOME_ACTUALが2^iより大きく
         else if (( (1 << i) < cpuEvoPrms.CHROMOSOME_ACTUAL )
+                // かつ、CHROMOSOME_ACTUALが2^(i+1)より小さい場合
                 && ( cpuEvoPrms.CHROMOSOME_ACTUAL < (1 << (i + 1)) ))
         {
+            // CHR_PSEUDOのサイズは2^(i + 1)とする
             cpuEvoPrms.CHROMOSOME_PSEUDO = (1 << (i + 1));
+            break;
+        }
+    }
+
+    //- ここで確保する個体群メモリサイズを決定する
+    for (int i = 5; i <= 10; ++i)
+    {
+        // POPSIZE_ACTUAL が 2のべき乗の場合
+        if (cpuEvoPrms.POPSIZE_ACTUAL == (1 << i))
+        {
+            // POPSIZE_PSEUDO は POPSIZE_ACTUAL と同様に2のべき乗とする
+            cpuEvoPrms.POPSIZE_PSEUDO = (1 << i);
+            break;
+        }
+        // POPSIZE_ACTUALが2^iより大きく
+        else if (( (1 << i) < cpuEvoPrms.POPSIZE_ACTUAL )
+                // かつ、POPSIZE_ACTUALが2^(i+1)より小さい場合
+                && ( cpuEvoPrms.POPSIZE_ACTUAL < (1 << (i + 1)) ))
+        {
+            // POPSIZE_PSEUDOのサイズは2^(i + 1)とする
+            cpuEvoPrms.POPSIZE_PSEUDO = (1 << (i + 1));
+            break;
         }
     }
 
     //-  総遺伝子長と総遺伝子サイズを設定する
-    cpuEvoPrms.N_ACTUAL = cpuEvoPrms.POPSIZE * cpuEvoPrms.CHROMOSOME_ACTUAL;
-    cpuEvoPrms.N_PSEUDO = cpuEvoPrms.POPSIZE * cpuEvoPrms.CHROMOSOME_PSEUDO;
+    cpuEvoPrms.N_ACTUAL = cpuEvoPrms.POPSIZE_ACTUAL * cpuEvoPrms.CHROMOSOME_ACTUAL;
+    cpuEvoPrms.N_PSEUDO = cpuEvoPrms.POPSIZE_PSEUDO * cpuEvoPrms.CHROMOSOME_PSEUDO;
+    // cpuEvoPrms.N_ACTUAL = cpuEvoPrms.POPSIZE * cpuEvoPrms.CHROMOSOME_ACTUAL;
+    // cpuEvoPrms.N_PSEUDO = cpuEvoPrms.POPSIZE * cpuEvoPrms.CHROMOSOME_PSEUDO;
     cpuEvoPrms.Nbytes_ACTUAL = cpuEvoPrms.N_ACTUAL * sizeof(int);
     cpuEvoPrms.Nbytes_PSEUDO = cpuEvoPrms.N_PSEUDO * sizeof(int);
 
@@ -72,24 +103,27 @@ void Parameters::loadParams()
     return;
 }
 
-int Parameters::getPopsize() const { return cpuEvoPrms.POPSIZE; }
-int Parameters::getChromosomeActual() const { return cpuEvoPrms.CHROMOSOME_ACTUAL; }
-int Parameters::getChromosomePseudo() const { return cpuEvoPrms.CHROMOSOME_PSEUDO; }
-int Parameters::getNumOfGenerations() const { return cpuEvoPrms.NUM_OF_GENERATIONS; }
-int Parameters::getNumOfElite() const { return cpuEvoPrms.NUM_OF_ELITE; }
-int Parameters::getTournamentSize() const { return cpuEvoPrms.TOURNAMENT_SIZE; }
-int Parameters::getNumOfCrossoverPoints() const { return cpuEvoPrms.NUM_OF_CROSSOVER_POINTS; }
-float Parameters::getMutationRate() const { return cpuEvoPrms.MUTATION_RATE; }
-int Parameters::getNActual() const { return cpuEvoPrms.N_ACTUAL; }
-int Parameters::getNPseudo() const { return cpuEvoPrms.N_PSEUDO; }
-int Parameters::getNbytesActual() const { return cpuEvoPrms.Nbytes_ACTUAL; }
-int Parameters::getNbytesPseudo() const { return cpuEvoPrms.Nbytes_PSEUDO; }
+int Parameters::getPopsizeActual()           const { return cpuEvoPrms.POPSIZE_ACTUAL; }
+int Parameters::getPopsizePseudo()           const { return cpuEvoPrms.POPSIZE_PSEUDO; }
+int Parameters::getChromosomeActual()        const { return cpuEvoPrms.CHROMOSOME_ACTUAL; }
+int Parameters::getChromosomePseudo()        const { return cpuEvoPrms.CHROMOSOME_PSEUDO; }
+int Parameters::getNumOfGenerations()        const { return cpuEvoPrms.NUM_OF_GENERATIONS; }
+int Parameters::getNumOfElite()              const { return cpuEvoPrms.NUM_OF_ELITE; }
+int Parameters::getTournamentSize()          const { return cpuEvoPrms.TOURNAMENT_SIZE; }
+int Parameters::getNumOfCrossoverPoints()    const { return cpuEvoPrms.NUM_OF_CROSSOVER_POINTS; }
+float Parameters::getMutationRate()          const { return cpuEvoPrms.MUTATION_RATE; }
+int Parameters::getNActual()                 const { return cpuEvoPrms.N_ACTUAL; }
+int Parameters::getNPseudo()                 const { return cpuEvoPrms.N_PSEUDO; }
+int Parameters::getNbytesActual()            const { return cpuEvoPrms.Nbytes_ACTUAL; }
+int Parameters::getNbytesPseudo()            const { return cpuEvoPrms.Nbytes_PSEUDO; }
 EvolutionParameters Parameters::getEvoPrms() const { return cpuEvoPrms; }
 
 void Parameters::showParams() const
 {
-    std::cout << "POPSIZE: " << cpuEvoPrms.POPSIZE << std::endl;
-    std::cout << "CHROMOSOME: " << cpuEvoPrms.CHROMOSOME_ACTUAL << std::endl;
+    std::cout << "POPSIZE_ACTUAL: " << cpuEvoPrms.POPSIZE_ACTUAL << std::endl;
+    std::cout << "POPSIZE_PSEUDO: " << cpuEvoPrms.POPSIZE_PSEUDO << std::endl;
+    std::cout << "CHROMOSOME_ACTUAL: " << cpuEvoPrms.CHROMOSOME_ACTUAL << std::endl;
+    std::cout << "CHROMOSOME_PSEUDO: " << cpuEvoPrms.CHROMOSOME_ACTUAL << std::endl;
     std::cout << "NUM_OF_GENERATIONS: " << cpuEvoPrms.NUM_OF_GENERATIONS << std::endl;
     std::cout << "NUM_OF_ELITE: " << cpuEvoPrms.NUM_OF_ELITE << std::endl;
     std::cout << "TOURNAMENT_SIZE: " << cpuEvoPrms.TOURNAMENT_SIZE << std::endl;

@@ -21,7 +21,8 @@ void initializePopulationOnCPU(int *population, Parameters *prms)
     // thrust::generate(population, population + N, my_rand);
 
 #ifdef _DEBUG
-    for (int i = 0; i < prms->getPopsize(); ++i)
+    for (int i = 0; i < prms->getPopsizeActual(); ++i)
+    // for (int i = 0; i < prms->getPopsize(); ++i)
     // for (int i = 0; i < POPSIZE; ++i)
 	{
         printf("Individual %d:", i);
@@ -42,7 +43,8 @@ void showPopulationOnCPU(int *population, int *fitness,
                          Parameters *prms)
 // void showPopulationOnCPU(int *population, int *fitness, int *parent1, int *parent2)
 {
-	for (int i = 0; i < prms->getPopsize(); ++i)
+	for (int i = 0; i < prms->getPopsizeActual(); ++i)
+	// for (int i = 0; i < prms->getPopsize(); ++i)
 	// for (int i = 0; i < POPSIZE; ++i)
 	{
 		printf("%d,%d,%d,%d,", i, fitness[i], parent1[i], parent2[i]);
@@ -64,18 +66,22 @@ void showSummaryOnCPU(int gen, int *fitness, Parameters *prms)
     float fitnessVar = 0.0f;
     float fitnessStdev = 0.0f;
 
-    for (int i = 0; i < prms->getPopsize(); ++i)
+    for (int i = 0; i < prms->getPopsizeActual(); ++i)
+    // for (int i = 0; i < prms->getPopsize(); ++i)
     {
         if (fitness[i] < fitnessMin) { fitnessMin = fitness[i]; }
         if (fitness[i] > fitnessMax) { fitnessMax = fitness[i]; }
         fitnessAve += fitness[i];
     }
-    fitnessAve /= prms->getPopsize();
+    fitnessAve /= prms->getPopsizeActual();
+    // fitnessAve /= prms->getPopsize();
     for (int i = 0; i < prms->getPopsize(); ++i)
+    // for (int i = 0; i < prms->getPopsizeActual(); ++i)
     {
         fitnessVar += ((float)fitness[i] - fitnessAve) * ((float)fitness[i] - fitnessAve);
     }
-    fitnessStdev = sqrt(fitnessVar / (prms->getPopsize() - 1));
+    fitnessStdev = sqrt(fitnessVar / (prms->getPopsizeActual() - 1));
+    // fitnessStdev = sqrt(fitnessVar / (prms->getPopsize() - 1));
 
     printf("%d,%f,%d,%d,%f\n", gen, fitnessAve, fitnessMin, fitnessMax, fitnessStdev);
 }

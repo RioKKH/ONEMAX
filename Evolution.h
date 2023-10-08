@@ -67,7 +67,9 @@ protected:
     void showSummary(const Parameters& prms, const float& elapsed_time);
 
     // Show the population
-    void showPopulation(Parameters* prms, std::uint16_t generation, std::uint16_t type);
+    void showPopulation(Parameters* prms);
+    // void showPopulation(Parameters* prms, uint16_t type);
+    // void showPopulation(Parameters* prms, std::uint16_t generation, std::uint16_t type);
 
 }; // end of GPU_Evolution
 
