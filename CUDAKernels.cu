@@ -185,50 +185,35 @@ __global__ void evaluation(PopulationData* populationData)
 
 __global__ void pseudo_elitism(PopulationData* populationData)
 {
-    const int numOfEliteIdx     = blockIdx.x;  // index of elite
+    const int EliteIdx     = blockIdx.x;  // index of elite
     const int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
-    const int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
-    const int OFFSET      = blockDim.x;  // size of NUM_OF_ELITE
+    const int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // Population size
+    const int OFFSET            = blockDim.x;  // Population size for each elite, 20
 
     extern __shared__ volatile int s_fitness[];
 
     // shared memoryにデータを読み込み
-    s_fitness[localFitnessIdx]          = populationData->fitness[globalFitnessIdx];
-    s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
+    // printf("Offset:%d, localFitnessIdx:%d, globalFitnessIdx:%d\n", OFFSET, localFitnessIdx, globalFitnessIdx);
+
+    //        0 ~ 19                                     0 ~ 7      20       0 ~ 19
+    s_fitness[localFitnessIdx] = populationData->fitness[EliteIdx * OFFSET + localFitnessIdx];
+    //        0 ~ 19             0~7        20       0 ~ 19
+    s_fitness[localFitnessIdx] = EliteIdx * OFFSET + localFitnessIdx;
     __syncthreads();
 
-    // Warp単位でのリダクション
-    if (localFitnessIdx < 32) {
-        volatile int* warpShared = s_fitness + (localFitnessIdx / 32) * 32;
-        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 16]) {
-            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 16];
-            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 16 + OFFSET];
-        }
-        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 8]) {
-            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 8];
-            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 8 + OFFSET];
-        }
-        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 4]) {
-            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 4];
-            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 4 + OFFSET];
-        }
-        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 2]) {
-            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 2];
-            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 2 + OFFSET];
-        }
-        if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 1]) {
-            warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 1];
-            warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 1 + OFFSET];
-        }
-    }
-    __syncthreads();
 
     // ブロック単位でのリダクション
-    for (int stride = OFFSET/2; stride >= 32; stride >>= 1)
+    // for (int stride = OFFSET/2; stride >= 32; stride >>= 1)
+    // これでは所望のリダクション処理になっていない
+    //                20    /2               5, 2, 1 --> NG!
+    for (int stride = OFFSET/2; stride >= 1; stride >>= 1)
     {
+        // printf("stride:%d, localFitnessIdx:%d\n", stride, localFitnessIdx);
+        //  < 20 = 160/8      8, 4, 2, 1
         if (localFitnessIdx < stride)
         {
             unsigned int index =
+                //         < 20 = 160 / 8                < 20 = 160 / 8  + 8, 4, 2, 1
                 (s_fitness[localFitnessIdx] >= s_fitness[localFitnessIdx + stride])
                 ? localFitnessIdx : localFitnessIdx + stride;
 
@@ -240,17 +225,44 @@ __global__ void pseudo_elitism(PopulationData* populationData)
 
     if (localFitnessIdx == 0 && blockIdx.x < gridDim.x)
     {
-        populationData->elitesIdx[numOfEliteIdx] = s_fitness[localFitnessIdx + OFFSET];
+        //                                                                20
+        populationData->elitesIdx[EliteIdx] = s_fitness[OFFSET];
+        // populationData->elitesIdx[EliteIdx] = s_fitness[localFitnessIdx + OFFSET];
     }
 }
 
+    // // Warp単位でのリダクション
+    // if (localFitnessIdx < 32) {
+    //     volatile int* warpShared = s_fitness + (localFitnessIdx / 32) * 32;
+    //     if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 16]) {
+    //         warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 16];
+    //         warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 16 + OFFSET];
+    //     }
+    //     if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 8]) {
+    //         warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 8];
+    //         warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 8 + OFFSET];
+    //     }
+    //     if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 4]) {
+    //         warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 4];
+    //         warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 4 + OFFSET];
+    //     }
+    //     if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 2]) {
+    //         warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 2];
+    //         warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 2 + OFFSET];
+    //     }
+    //     if (warpShared[localFitnessIdx] < warpShared[localFitnessIdx + 1]) {
+    //         warpShared[localFitnessIdx] = warpShared[localFitnessIdx + 1];
+    //         warpShared[localFitnessIdx + OFFSET] = warpShared[localFitnessIdx + 1 + OFFSET];
+    //     }
+    // }
+    // __syncthreads();
 
 __global__ void pseudo_elitismOrg(PopulationData* populationData)
 {
     const int numOfEliteIdx     = blockIdx.x;  // index of elite
     const int localFitnessIdx   = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
     const int globalFitnessIdx  = threadIdx.x + blockIdx.x * blockDim.x; // size of POPULATION x 2
-    const int OFFSET      = blockDim.x;  // size of NUM_OF_ELITE
+    const int OFFSET            = blockDim.x;  // size of NUM_OF_ELITE
 
     extern __shared__ volatile int s_fitness[];
 
@@ -292,14 +304,21 @@ __global__ void replaceWithElites(
     const uint32_t geneIdx = threadIdx.x;
     const uint32_t eliteIdx = blockIdx.x;
 
+    // 何個体ごとにエリートを選択するかを計算する。
     uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / NUM_OF_ELITE;
+    // Offspringの何個体目の個体をエリートで置き換えるかを計算する。
     uint32_t offspringIdx = eliteIdx * ELITE_INTERVAL;
-    uint32_t ELITE_OFFSET
-        = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[eliteIdx];
-    uint32_t OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * offspringIdx;
 
-    offspringPopulation->population[OFFSET + geneIdx]
-        = parentPopulation->population[ELITE_OFFSET + geneIdx];
+    // 親の世代のエリートのオフセット値を計算する
+    uint32_t PARENT_ELITE_OFFSET
+        = gpuEvoPrms.CHROMOSOME_PSEUDO * parentPopulation->elitesIdx[eliteIdx];
+
+    // 子の世代のオフセット値を計算する
+    uint32_t OFFSPRING_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * offspringIdx;
+
+    // 子の世代の個体の遺伝子を親の世代のエリート個体の遺伝子で置き換える
+    offspringPopulation->population[OFFSPRING_OFFSET + geneIdx]
+        = parentPopulation->population[PARENT_ELITE_OFFSET + geneIdx];
 
     if (geneIdx == 0) {
         offspringPopulation->fitness[offspringIdx]
@@ -370,7 +389,7 @@ __global__ void replaceWithElitesNew1(
     __syncthreads();
 }
 
-__global__ void replaceWithElitesOld(
+__global__ void replaceWithElitesOrg(
         PopulationData *parentPopulation,
         PopulationData *offspringPopulation)
 {
