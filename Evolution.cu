@@ -36,11 +36,11 @@ GPUEvolution::GPUEvolution(Parameters* prms)
     //- ここで確保する配列サイズはPSEUDOの方と思われる
     // 遺伝子配列はevaluationでカスケーディングを用いるため、
     // 2の冪乗のサイズにしておく必要がある
-    mHostTempPopulation
-        = new CPUPopulation(
-                prms->getPopsizeActual(),
-                prms->getChromosomePseudo(),
-                prms->getNumOfElite());
+
+    // TODO: たぶんshared memoryにコピーする際にpseudoのサイズに
+    // すれば良いだけで、ここではActualのサイズにしておいて
+    // も問題ないと思われる。ただし修正点が多いので、今は手を付けない
+    // (2023/10/09)
 
     mHostParentPopulation
         = new CPUPopulation(
@@ -73,13 +73,6 @@ GPUEvolution::GPUEvolution(Parameters* prms)
 
     // Create populations on GPU
     //- ここで確保する配列サイズもPSEUDOの方と思われる
-    // mDevTempPopulation
-    //     = new GPUPopulation(
-    //             prms->getPopsize(),
-    //             // prms->getChromosomeActual(),
-    //             prms->getChromosomePseudo(),
-    //             prms->getNumOfElite());
-
     mDevParentPopulation
         = new GPUPopulation(
                 prms->getPopsizeActual(),
@@ -95,7 +88,6 @@ GPUEvolution::GPUEvolution(Parameters* prms)
                 prms->getNumOfElite());
 
     // Copy population from CPU to GPU
-    // mDevTempPopulation->copyToDevice(mHostTempPopulation->getDeviceData());
     mDevParentPopulation->copyToDevice(mHostParentPopulation->getDeviceData());
     mDevOffspringPopulation->copyToDevice(mHostOffspringPopulation->getDeviceData());
 
@@ -110,13 +102,11 @@ GPUEvolution::GPUEvolution(Parameters* prms)
  */
 GPUEvolution::~GPUEvolution()
 {
-    // delete mHostTempPopulation;
     delete mHostParentPopulation;
     delete mHostOffspringPopulation;
 
-    // delete mDevTempPopulation;
-    // delete mDevParentPopulation;
-    // delete mDevOffspringPopulation;
+    delete mDevParentPopulation;
+    delete mDevOffspringPopulation;
 } // end of Destructor
 
 
@@ -143,14 +133,14 @@ void GPUEvolution::run(Parameters* prms)
     // printf("### EvoCycle\n");
     for (generation = 0; generation < prms->getNumOfGenerations(); ++generation)
     {
-        // printf("=== Generation: %d ===\n", generation);
         runEvolutionCycle(prms);
+        showSummary(*prms, elapsed_time, generation);
     }
 
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);
-    showSummary(*prms, elapsed_time);
+    // showSummary(*prms, elapsed_time, generation);
 }
 
 
@@ -330,7 +320,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     mDevOffspringPopulation = temp;
 }
 
-void GPUEvolution::showSummary(const Parameters& prms, const float& elapsedTime)
+void GPUEvolution::showSummary(const Parameters& prms, const float& elapsedTime, const int& generation)
 {
     dim3 blocks;
     dim3 threads;
@@ -365,7 +355,8 @@ void GPUEvolution::showSummary(const Parameters& prms, const float& elapsedTime)
                 0.0) / prms.getPopsizeActual();
 
     std::cout 
-        << prms.getPopsizeActual()
+        << generation
+        << "," << prms.getPopsizeActual()
         << "," << prms.getChromosomeActual()
         << "," << elapsedTime
         << "," << *maxElementPtr
