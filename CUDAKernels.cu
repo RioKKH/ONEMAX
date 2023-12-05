@@ -393,6 +393,7 @@ __global__ void cudaKernelMutation(
     if (CHROMOIDX < gpuEvoPrms.CHROMOSOME_ACTUAL)
     {
         int originalValue = offspring->population[globalPopulationIdx];
+        // originalValue ^ 1 はビット反転を行う
         offspring->population[globalPopulationIdx] = shouldMutate ? (originalValue ^ 1) : originalValue;
     }
 }
