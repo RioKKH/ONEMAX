@@ -1,4 +1,4 @@
-POPSIZE                   1024
+POPSIZE                   672
 CHROMOSOME                1024
 NUM_OF_GENERATIONS        512
 NUM_OF_ELITE              8

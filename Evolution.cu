@@ -134,13 +134,17 @@ void GPUEvolution::run(Parameters* prms)
     for (generation = 0; generation < prms->getNumOfGenerations(); ++generation)
     {
         runEvolutionCycle(prms);
+#ifdef _SHOWPOPULATION
         showSummary(*prms, elapsed_time, generation);
+#endif // SHOWPOPULATION
     }
 
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);
-    // showSummary(*prms, elapsed_time, generation);
+#ifdef _SHOWRESULT
+    showSummary(*prms, elapsed_time, generation);
+#endif // SHOWRESULT
 }
 
 
