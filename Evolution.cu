@@ -286,8 +286,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     blocks.y  = 1;
     blocks.z  = 1;
 
-    threads.x = prms->getPopsizePseudo() / prms->getNumOfElite();
-    // threads.x = prms->getPopsize() / prms->getNumOfElite();
+    threads.x = prms->getPopsizeActual() / prms->getNumOfElite();
     threads.y = 1;
     threads.z = 1;
 
