@@ -13,7 +13,7 @@ constexpr int WARP_SIZE  = 32;
 constexpr int MAX_POP_SIZE = 1024;
 
 //- Constant tournament size
-constexpr int CONST_TOURNAMENT_SIZE = 4;
+// constexpr int CONST_TOURNAMENT_SIZE = 4;
 
 //- 
 

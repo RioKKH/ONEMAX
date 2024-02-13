@@ -5,7 +5,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-#include <cuda.h>
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/cub.cuh>
 #include <cuda_runtime.h>
 #include <helper_cuda.h>
 
@@ -36,11 +37,6 @@ GPUEvolution::GPUEvolution(Parameters* prms)
     //- ここで確保する配列サイズはPSEUDOの方と思われる
     // 遺伝子配列はevaluationでカスケーディングを用いるため、
     // 2の冪乗のサイズにしておく必要がある
-
-    // TODO: たぶんshared memoryにコピーする際にpseudoのサイズに
-    // すれば良いだけで、ここではActualのサイズにしておいて
-    // も問題ないと思われる。ただし修正点が多いので、今は手を付けない
-    // (2023/10/09)
 
     mHostParentPopulation
         = new CPUPopulation(
@@ -88,8 +84,8 @@ GPUEvolution::GPUEvolution(Parameters* prms)
                 prms->getNumOfElite());
 
     // Copy population from CPU to GPU
-    mDevParentPopulation->copyToDevice(mHostParentPopulation->getDeviceData());
-    mDevOffspringPopulation->copyToDevice(mHostOffspringPopulation->getDeviceData());
+    // mDevParentPopulation->copyToDevice(mHostParentPopulation->getDeviceData());
+    // mDevOffspringPopulation->copyToDevice(mHostOffspringPopulation->getDeviceData());
 
     mMultiprocessorCount = prop.multiProcessorCount;
     // Initialize Random seed
@@ -133,7 +129,9 @@ void GPUEvolution::run(Parameters* prms)
     // printf("### EvoCycle\n");
     for (generation = 0; generation < prms->getNumOfGenerations(); ++generation)
     {
+
         runEvolutionCycle(prms);
+
 #ifdef _SHOWPOPULATION
         showSummary(*prms, elapsed_time, generation);
 #endif // SHOWPOPULATION
@@ -186,6 +184,13 @@ void GPUEvolution::initialize(Parameters* prms)
     cudaKernelGenerateFirstPopulation
         <<<blocks, threads>>>
         (mDevParentPopulation->getDeviceData(), getRandomSeed());
+
+#ifdef _ELITISM
+    printf("### Elitism_Init\n");
+    cudaKernelGenerateFirstPopulation
+        <<<blocks, threads>>>
+        (mDevOffspringPopulation->getDeviceData(), getRandomSeed());
+#endif // _ELITISM
 
     checkAndReportCudaError(__FILE__, __LINE__);
 } // end of initialize
@@ -281,12 +286,14 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 
     checkAndReportCudaError(__FILE__, __LINE__);
 
+#ifndef _ELITISM
     //- 疑似エリート保存戦略 -------------------------------
     blocks.x  = prms->getNumOfElite();
     blocks.y  = 1;
     blocks.z  = 1;
 
-    threads.x = prms->getPopsizeActual() / prms->getNumOfElite();
+    threads.x = prms->getPopsizePseudo() / prms->getNumOfElite();
+    // threads.x = prms->getPopsizeActual() / prms->getNumOfElite();
     threads.y = 1;
     threads.z = 1;
 
@@ -295,6 +302,13 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
         (mDevParentPopulation->getDeviceData());
 
     checkAndReportCudaError(__FILE__, __LINE__);
+#else
+    //- エリート保存戦略 -----------------------------------
+    printf("### Elitism_elite\n");
+    mDevParentPopulation->elitism(prms);
+    showPopulation(prms);
+#endif // _ELITISM
+
 
     //- Elitesの差し込み -----------------------------------
     blocks.x  = prms->getNumOfElite();
@@ -314,7 +328,9 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 
     checkAndReportCudaError(__FILE__, __LINE__);
 
-    // showPopulation(prms);
+#ifdef _SHOWPOPULATION
+    showPopulation(prms);
+#endif // _SHOWPOPULATION
 
 
     //- 現世代の子を次世代の親とする -----------------------------------
@@ -407,13 +423,22 @@ void GPUEvolution::showPopulation(Parameters* prms)
         {
             printf("%d", mHostParentPopulation->getDeviceData()->population[i * pcsize + j]);
         }
+        printf(":%d",  mHostParentPopulation->getDeviceData()->fitness_index[i]);
         printf(":%d\n", mHostParentPopulation->getDeviceData()->fitness[i]);
     }
+    printf("=== Parent population sorted ===\n");
+    for (int i = 0; i < psize; ++i)
+    {
+        printf("fitness_index_sorted:%d ",
+                mHostParentPopulation->getDeviceData()->fitness_index_sorted[i]);
+        printf("fitness_sorted:%d\n", mHostParentPopulation->getDeviceData()->fitness_sorted[i]);
+    }
+
 
     // Print elites in parent population
     int tempindex = 0;
     int tempvalue = 0;
-    printf("\nEtlies in parent population\n");
+    printf("\nElites in parent population\n");
     for (int k = 0; k < esize; ++k)
     {
         tempindex = mHostParentPopulation->getDeviceData()->elitesIdx[k];
@@ -437,8 +462,13 @@ void GPUEvolution::showPopulation(Parameters* prms)
         {
             printf("%d", mHostOffspringPopulation->getDeviceData()->population[i * pcsize + j]);
         }
+        printf(":%d", mHostOffspringPopulation->getDeviceData()->fitness_index[i]);
         printf(":%d\n", mHostOffspringPopulation->getDeviceData()->fitness[i]);
     }
+    printf("=== Offspring population sorted ===\n");
+    for (int i = 0; i < psize; ++i)
+    {
+        printf("index_sorted:%d ",  mHostOffspringPopulation->getDeviceData()->fitness_index_sorted[i]);
+        printf("fitness_sorted:%d\n", mHostOffspringPopulation->getDeviceData()->fitness_sorted[i]);
+    }
 }
-
-

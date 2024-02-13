@@ -4,9 +4,11 @@
 #include <algorithm>
 #include <numeric>
 #include <cuda_runtime.h>
+#include <cub/cub.cuh>
 
 #include "Common/helper_cuda.h"
 #include "Population.h"
+#include "Parameters.h"
 #include "CUDAKernels.h"
 
 
@@ -120,6 +122,22 @@ void GPUPopulation::copyFromDevice(PopulationData * hostPopulation)
                                sizeof(Fitness) * mHostPopulationHandler.populationSize,
                                cudaMemcpyDeviceToHost));
 
+    checkCudaErrors(cudaMemcpy(hostPopulation->fitness_sorted,
+                               mHostPopulationHandler.fitness_sorted,
+                               sizeof(Fitness) * mHostPopulationHandler.populationSize,
+                               cudaMemcpyDeviceToHost));
+
+    //- Copy fitness_index values
+    checkCudaErrors(cudaMemcpy(hostPopulation->fitness_index,
+                               mHostPopulationHandler.fitness_index,
+                               sizeof(Fitness) * mHostPopulationHandler.populationSize,
+                               cudaMemcpyDeviceToHost));
+
+    checkCudaErrors(cudaMemcpy(hostPopulation->fitness_index_sorted,
+                               mHostPopulationHandler.fitness_index_sorted,
+                               sizeof(Fitness) * mHostPopulationHandler.populationSize,
+                               cudaMemcpyDeviceToHost));
+
     //- Copy elites index values
     checkCudaErrors(cudaMemcpy(hostPopulation->elitesIdx,
                                mHostPopulationHandler.elitesIdx,
@@ -189,6 +207,39 @@ void GPUPopulation::copyIndividualFromDevice(Gene* individual, int index)
                        cudaMemcpyDeviceToHost));
 } // end of copyIndividualFromDevice
 
+int GPUPopulation::elitism(Parameters *params)
+{
+    printf("Population elitism\n");
+    int psize = mHostPopulationHandler.populationSize;
+    void *d_temp_storage = nullptr;
+    size_t temp_storage_bytes = 0;
+
+    cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
+                                    mHostPopulationHandler.fitness,
+                                    mHostPopulationHandler.fitness_sorted,
+                                    mHostPopulationHandler.fitness_index,
+                                    mHostPopulationHandler.fitness_index_sorted,
+                                    params->getPopsizeActual());
+
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+
+    cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
+                                    mHostPopulationHandler.fitness,
+                                    mHostPopulationHandler.fitness_sorted,
+                                    mHostPopulationHandler.fitness_index,
+                                    mHostPopulationHandler.fitness_index_sorted,
+                                    params->getPopsizeActual());
+                                    // mHostPopulationHandler.populationSize);
+
+    // for (int i = 0; i < mHostPopulationHandler.elitesSize; i++)
+    // {
+    //     mHostPopulationHandler.elitesIdx[i]
+    //         = mHostPopulationHandler.fitness_index_sorted[psize - i];
+    // }
+
+    return 0;
+}
+
 
 //----- GPUPopulation     ------
 //----- Protected methods ------
@@ -210,6 +261,18 @@ void GPUPopulation::allocateMemory()
     //- Allocate Fitness data
     checkCudaErrors(
             cudaMalloc<Fitness>(&(mHostPopulationHandler.fitness),
+                sizeof(Fitness) * mHostPopulationHandler.populationSize));
+
+    checkCudaErrors(
+            cudaMalloc<Fitness>(&(mHostPopulationHandler.fitness_sorted),
+                sizeof(Fitness) * mHostPopulationHandler.populationSize));
+
+    checkCudaErrors(
+            cudaMalloc<Fitness>(&(mHostPopulationHandler.fitness_index),
+                sizeof(Fitness) * mHostPopulationHandler.populationSize));
+
+    checkCudaErrors(
+            cudaMalloc<Fitness>(&(mHostPopulationHandler.fitness_index_sorted),
                 sizeof(Fitness) * mHostPopulationHandler.populationSize));
 
     //- Allocate ElitesIdx data
@@ -238,6 +301,7 @@ void GPUPopulation::freeMemory()
 
     // Free fitness data
     checkCudaErrors(cudaFree(mHostPopulationHandler.fitness));
+    checkCudaErrors(cudaFree(mHostPopulationHandler.fitness_sorted));
 
     // Free elitesIdx data
     checkCudaErrors(cudaFree(mHostPopulationHandler.elitesIdx));
@@ -308,6 +372,10 @@ double CPUPopulation::getMean()
 void CPUPopulation::allocateMemory()
 {
     // printf("num of population elements: %d\n", mHostData->chromosomeSize * mHostData->populationSize);
+    // ピン止めメモリ(pinned) または ページロックされる。
+    // ピン止めメモリは仮想メモリシステムによってページアウトされる事がなく、
+    // GPUが直接アクセスできる状態に保たれる。これにより、ホストとデバイス間の
+    // データ転送が高速化される為、GPU計算でのパフォーマンス向上に寄与する。
     //- Allocate Population on the host side
     checkCudaErrors(
             cudaHostAlloc<Gene>
@@ -319,6 +387,24 @@ void CPUPopulation::allocateMemory()
     checkCudaErrors(
             cudaHostAlloc<Fitness>
             (&mHostData->fitness,
+             sizeof(Fitness) * mHostData->populationSize,
+             cudaHostAllocDefault));
+
+    checkCudaErrors(
+            cudaHostAlloc<Fitness>
+            (&mHostData->fitness_sorted,
+             sizeof(Fitness) * mHostData->populationSize,
+             cudaHostAllocDefault));
+
+    checkCudaErrors(
+            cudaHostAlloc<Fitness>
+            (&mHostData->fitness_index,
+             sizeof(Fitness) * mHostData->populationSize,
+             cudaHostAllocDefault));
+
+    checkCudaErrors(
+            cudaHostAlloc<Fitness>
+            (&mHostData->fitness_index_sorted,
              sizeof(Fitness) * mHostData->populationSize,
              cudaHostAllocDefault));
 
@@ -342,6 +428,7 @@ void CPUPopulation::freeMemory()
 
     // Free fitness on the host side
     checkCudaErrors(cudaFreeHost(mHostData->fitness));
+    checkCudaErrors(cudaFreeHost(mHostData->fitness_sorted));
 
     // Free elitesIdx on the host side
     checkCudaErrors(cudaFreeHost(mHostData->elitesIdx));

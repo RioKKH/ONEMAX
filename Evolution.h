@@ -71,6 +71,8 @@ protected:
     // void showPopulation(Parameters* prms, uint16_t type);
     // void showPopulation(Parameters* prms, std::uint16_t generation, std::uint16_t type);
 
+    // int elitism(Parameters* prms);
+
 }; // end of GPU_Evolution
 
 #endif // EVOLUTION_H

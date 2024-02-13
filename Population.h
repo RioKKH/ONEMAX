@@ -2,6 +2,7 @@
 #define POPULATION_H
 
 #include <string>
+#include "Parameters.h"
 
 // Data type for Gene.
 typedef unsigned int Gene;
@@ -27,6 +28,12 @@ struct PopulationData
     Gene* population;
     //- 1D array of fitness value.
     Fitness* fitness;
+    Fitness* fitness_sorted;
+
+    //- 1D array of fitness index.
+    Fitness* fitness_index;
+    Fitness* fitness_index_sorted;
+
     //- 1D array of index of selected elites
     ElitesIdx* elitesIdx;
 }; // end of PopulationData
@@ -108,6 +115,8 @@ public:
      * @param [in]  index      - Index of the individual in device population.
      */
     void copyIndividualFromDevice(Gene* individual, int index);
+
+    int elitism(Parameters* params);
 
 protected:
     //- Allocate memory.

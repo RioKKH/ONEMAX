@@ -81,6 +81,9 @@ __global__ void cudaKernelGenerateFirstPopulation(
     // #pragma unroll // を使うこともできるが、具体的に書き下す事をここでは選択した
     // gpuEvoPrms.CHROMOSOME_ACTUALが4の倍数であることを
     // 前提としたループアンローリングを行う
+    // TODO:
+    // ループアンローリングをしているのに、threadIdx.xを実際の遺伝子の長さにしているのは
+    // 無駄な気がする。イニシャライズで無駄なスレッドが動作している可能性がある。
     for (int i = 0; i < gpuEvoPrms.CHROMOSOME_ACTUAL / 4; i += 4)
     {
         // Iteration 1
@@ -115,8 +118,14 @@ __global__ void cudaKernelGenerateFirstPopulation(
         populationData->population[offset + stride * 3 + i + 3] = randomValues.v[3] % 2;
     }
     
-    // フィットネスの初期化を全スレッドで行う
-    populationData->fitness[blockIdx.x] = 0;
+    // フィットネスの初期化をthreadIdx.x == 0のスレッドのみが行う
+    if (geneIdx == 0)
+    {
+        populationData->fitness[blockIdx.x] = 0;
+        populationData->fitness_sorted[blockIdx.x] = 0;
+        populationData->fitness_index[blockIdx.x] = blockIdx.x;
+        populationData->fitness_index_sorted[blockIdx.x] = blockIdx.x;
+    }
 }
 
 
@@ -158,7 +167,7 @@ __global__ void evaluation(PopulationData* populationData)
 
 __global__ void pseudo_elitism(PopulationData* populationData)
 {
-    const int OFFSET           = blockDim.x;  // Population size for each elite, 20
+    const int OFFSET           = blockDim.x;  // Population size for each elite
     const int EliteIdx         = blockIdx.x;  // index of elite
     const int localFitnessIdx  = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
     const int globalFitnessIdx = threadIdx.x + blockIdx.x * blockDim.x; // Population size
@@ -204,6 +213,8 @@ __global__ void pseudo_elitism(PopulationData* populationData)
 
     if (localFitnessIdx == 0 && blockIdx.x < gridDim.x)
     {
+        // s_fitness[OFFSET]には各ブロックの疑似エリートの
+        // インデックスが格納されているので、それをpopulationData->elitesIdxに格納する
         populationData->elitesIdx[EliteIdx] = s_fitness[OFFSET];
     }
 }

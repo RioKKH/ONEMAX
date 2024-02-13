@@ -34,6 +34,7 @@ LDFLAGS =
 debug =
 #debug += -D_SHOWPOPULATION
 debug += -D_SHOWRESULT
+debug += -D_ELITISM
 #debug= -g -D_DEBUG
 
 APPS = gpuonemax
