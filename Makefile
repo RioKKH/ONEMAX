@@ -32,9 +32,9 @@ CPPINCLUDE=-I./Common
 CFLAGS=
 LDFLAGS =
 debug =
-#debug += -D_SHOWPOPULATION
+debug += -D_SHOWPOPULATION
 debug += -D_SHOWRESULT
-debug += -D_ELITISM
+#debug += -D_ELITISM
 #debug= -g -D_DEBUG
 
 APPS = gpuonemax

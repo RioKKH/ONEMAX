@@ -286,7 +286,8 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 
     checkAndReportCudaError(__FILE__, __LINE__);
 
-#ifndef _ELITISM
+#if 0
+// #ifndef _ELITISM
     //- 疑似エリート保存戦略 -------------------------------
     blocks.x  = prms->getNumOfElite();
     blocks.y  = 1;
@@ -305,6 +306,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 #else
     //- エリート保存戦略 -----------------------------------
     printf("### Elitism_elite\n");
+
     mDevParentPopulation->elitism(prms);
     showPopulation(prms);
 #endif // _ELITISM
@@ -426,6 +428,8 @@ void GPUEvolution::showPopulation(Parameters* prms)
         printf(":%d",  mHostParentPopulation->getDeviceData()->fitness_index[i]);
         printf(":%d\n", mHostParentPopulation->getDeviceData()->fitness[i]);
     }
+
+#ifdef _ELITISM
     printf("=== Parent population sorted ===\n");
     for (int i = 0; i < psize; ++i)
     {
@@ -433,6 +437,7 @@ void GPUEvolution::showPopulation(Parameters* prms)
                 mHostParentPopulation->getDeviceData()->fitness_index_sorted[i]);
         printf("fitness_sorted:%d\n", mHostParentPopulation->getDeviceData()->fitness_sorted[i]);
     }
+#endif // _ELITISM
 
 
     // Print elites in parent population

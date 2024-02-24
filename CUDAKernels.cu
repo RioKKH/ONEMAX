@@ -245,6 +245,11 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     // }
     // __syncthreads();
 
+__global__ void elitism(PopulationData* populationData)
+{
+    return;
+}
+
 
 __global__ void replaceWithElites(
         PopulationData *parentPopulation,

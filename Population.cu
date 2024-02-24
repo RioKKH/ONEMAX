@@ -78,6 +78,22 @@ void GPUPopulation::copyToDevice(const PopulationData* hostPopulation)
                                sizeof(Fitness) * mHostPopulationHandler.populationSize,
                                cudaMemcpyHostToDevice));
 
+    checkCudaErrors(cudaMemcpy(mHostPopulationHandler.fitness_sorted,
+                               hostPopulation->fitness_sorted,
+                               sizeof(Fitness) * mHostPopulationHandler.populationSize,
+                               cudaMemcpyHostToDevice));
+
+    //- Copy fitness_index values
+    checkCudaErrors(cudaMemcpy(mHostPopulationHandler.fitness_index,
+                               hostPopulation->fitness_index,
+                               sizeof(Fitness) * mHostPopulationHandler.populationSize,
+                               cudaMemcpyHostToDevice));
+
+    checkCudaErrors(cudaMemcpy(mHostPopulationHandler.fitness_index_sorted,
+                               hostPopulation->fitness_index_sorted,
+                               sizeof(Fitness) * mHostPopulationHandler.populationSize,
+                               cudaMemcpyHostToDevice));
+
     //- Copy elites indexes
     checkCudaErrors(cudaMemcpy(mHostPopulationHandler.elitesIdx,
                                hostPopulation->elitesIdx,
