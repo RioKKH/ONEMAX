@@ -25,15 +25,17 @@ void checkAndReportCudaError(const char* sourceFileName,
                              const int   sourceLineNumber);
 
 
+__global__ void evaluationsingle(PopulationData* populationData);
 __global__ void evaluation(PopulationData* populationData);
 //__global__ void evaluation(int *population, int *fitness);
 
 __global__ void pseudo_elitism(PopulationData* populationData);
 
-__global__ void elitism(PopulationData* populationData);
-
 __global__ void replaceWithElites(PopulationData *parentPopulation,
                                   PopulationData *offspringPopulation);
+
+__global__ void replaceWithPseudoElites(PopulationData *parentPopulation,
+                                        PopulationData *offspringPopulation);
 
 __global__ void swapPopulation(PopulationData* parentPopulation,
                                PopulationData* offspringPopulation);

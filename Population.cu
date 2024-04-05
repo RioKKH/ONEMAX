@@ -9,6 +9,7 @@
 #include "Common/helper_cuda.h"
 #include "Population.h"
 #include "Parameters.h"
+#include "Evolution.h"
 #include "CUDAKernels.h"
 
 
@@ -21,8 +22,8 @@ GPUPopulation::GPUPopulation(const int populationSize,
                              const int chromosomeSize,
                              const int elitesSize)
 {
-    mHostPopulationHandler.chromosomeSize = chromosomeSize;
     mHostPopulationHandler.populationSize = populationSize;
+    mHostPopulationHandler.chromosomeSize = chromosomeSize;
     mHostPopulationHandler.elitesSize     = elitesSize;
 
     allocateMemory();
@@ -225,33 +226,31 @@ void GPUPopulation::copyIndividualFromDevice(Gene* individual, int index)
 
 int GPUPopulation::elitism(Parameters *params)
 {
-    printf("Population elitism\n");
-    int psize = mHostPopulationHandler.populationSize;
+    // printf("Population elitism\n");
     void *d_temp_storage = nullptr;
     size_t temp_storage_bytes = 0;
 
-    cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
-                                    mHostPopulationHandler.fitness,
-                                    mHostPopulationHandler.fitness_sorted,
-                                    mHostPopulationHandler.fitness_index,
-                                    mHostPopulationHandler.fitness_index_sorted,
-                                    params->getPopsizeActual());
+    checkCudaErrors(
+            cub::DeviceRadixSort::SortPairs(
+                d_temp_storage, temp_storage_bytes,
+                mHostPopulationHandler.fitness,
+                mHostPopulationHandler.fitness_sorted,
+                mHostPopulationHandler.fitness_index,
+                mHostPopulationHandler.fitness_index_sorted,
+                params->getPopsizeActual()));
 
-    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+    checkCudaErrors(cudaMalloc(&d_temp_storage, temp_storage_bytes));
 
-    cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes,
-                                    mHostPopulationHandler.fitness,
-                                    mHostPopulationHandler.fitness_sorted,
-                                    mHostPopulationHandler.fitness_index,
-                                    mHostPopulationHandler.fitness_index_sorted,
-                                    params->getPopsizeActual());
-                                    // mHostPopulationHandler.populationSize);
+    checkCudaErrors(
+            cub::DeviceRadixSort::SortPairs(
+                d_temp_storage, temp_storage_bytes,
+                mHostPopulationHandler.fitness,
+                mHostPopulationHandler.fitness_sorted,
+                mHostPopulationHandler.fitness_index,
+                mHostPopulationHandler.fitness_index_sorted,
+                params->getPopsizeActual()));
 
-    // for (int i = 0; i < mHostPopulationHandler.elitesSize; i++)
-    // {
-    //     mHostPopulationHandler.elitesIdx[i]
-    //         = mHostPopulationHandler.fitness_index_sorted[psize - i];
-    // }
+    cudaFree(d_temp_storage);
 
     return 0;
 }

@@ -129,6 +129,26 @@ __global__ void cudaKernelGenerateFirstPopulation(
 }
 
 
+__global__ void evaluationsingle(PopulationData* populationData)
+{
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx == 0) {
+        for (int i = 0; i < populationData->populationSize; i++) {
+            int fitness = 0;
+
+            printf("%d,", i);
+            for (int j = 0; j < populationData->chromosomeSize; j++) {
+                int bit = (populationData->population[i*populationData->chromosomeSize + j]);
+                printf("%d", bit);
+                fitness += bit;
+            }
+
+            populationData->fitness[i] = fitness;
+            printf(":%d\n", populationData->fitness[i]);
+        }
+    }
+}
+
 __global__ void evaluation(PopulationData* populationData)
 {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -149,18 +169,33 @@ __global__ void evaluation(PopulationData* populationData)
 
     if (tx < 32)
     {
+        // #pragma unroll
+        // for (int offset = 32; offset > 0; offset >>= 1) {
+        //     if (blockDim.x >= offset * 2) {
+        //         s_idata[tx] += s_idata[tx + offset];
+        //     }
+        // }
         // ワープ内でのリダクション
-        s_idata[tx] += s_idata[tx + 32];
-        s_idata[tx] += s_idata[tx + 16];
-        s_idata[tx] += s_idata[tx +  8];
-        s_idata[tx] += s_idata[tx +  4];
-        s_idata[tx] += s_idata[tx +  2];
-        s_idata[tx] += s_idata[tx +  1];
+        if (blockDim.x >= 64) s_idata[tx] += s_idata[tx + 32];
+        if (blockDim.x >= 32) s_idata[tx] += s_idata[tx + 16];
+        if (blockDim.x >= 16) s_idata[tx] += s_idata[tx +  8];
+        if (blockDim.x >=  8) s_idata[tx] += s_idata[tx +  4];
+        if (blockDim.x >=  4) s_idata[tx] += s_idata[tx +  2];
+        if (blockDim.x >=  2) s_idata[tx] += s_idata[tx +  1];
+
+        // s_idata[tx] += s_idata[tx + 32];
+        // s_idata[tx] += s_idata[tx + 16];
+        // s_idata[tx] += s_idata[tx +  8];
+        // s_idata[tx] += s_idata[tx +  4];
+        // s_idata[tx] += s_idata[tx +  2];
+        // s_idata[tx] += s_idata[tx +  1];
     }
 
+    __syncthreads();
     if (tx == 0)
     {
         populationData->fitness[blockIdx.x] = s_idata[0];
+        // printf("fitness[%d]: %d\n", blockIdx.x, populationData->fitness[blockIdx.x]);
     }
 }
 
@@ -245,13 +280,40 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     // }
     // __syncthreads();
 
-__global__ void elitism(PopulationData* populationData)
+__global__ void replaceWithElites(
+        PopulationData *parentPopulation,
+        PopulationData *offspringPopulation)
 {
-    return;
+    const uint32_t NUM_OF_ELITE = gpuEvoPrms.NUM_OF_ELITE;
+    const uint32_t geneIdx = threadIdx.x;
+    const uint32_t eliteIdx = blockIdx.x;
+
+    // 何個体ごとにエリートを選択するかを計算する。
+    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_ACTUAL / NUM_OF_ELITE;
+
+    // Offspringの何個体目の個体をエリートで置き換えるかを計算する。
+    uint32_t offspringIdx = eliteIdx * ELITE_INTERVAL;
+
+    // 親の世代のエリートのオフセット値を計算する
+    uint32_t PARENT_ELITE_OFFSET
+        = gpuEvoPrms.CHROMOSOME_PSEUDO 
+        * parentPopulation->fitness_index_sorted[gpuEvoPrms.POPSIZE_ACTUAL - eliteIdx - 1];
+
+    // 子の世代のオフセット値を計算する
+    uint32_t OFFSPRING_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * offspringIdx;
+
+    // 子の世代の個体の遺伝子を親の世代のエリート個体の遺伝子で置き換える
+    offspringPopulation->population[OFFSPRING_OFFSET + geneIdx]
+        = parentPopulation->population[PARENT_ELITE_OFFSET + geneIdx];
+
+    if (geneIdx == 0) {
+        offspringPopulation->fitness[offspringIdx]
+            = parentPopulation->fitness[parentPopulation->elitesIdx[eliteIdx]];
+    }
 }
 
 
-__global__ void replaceWithElites(
+__global__ void replaceWithPseudoElites(
         PopulationData *parentPopulation,
         PopulationData *offspringPopulation)
 {

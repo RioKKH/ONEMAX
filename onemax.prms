@@ -1,7 +1,7 @@
-POPSIZE                   32
-CHROMOSOME                32
-NUM_OF_GENERATIONS        2
-NUM_OF_ELITE              4
+POPSIZE                   768
+CHROMOSOME                768
+NUM_OF_GENERATIONS        512
+NUM_OF_ELITE              8
 TOURNAMENT_SIZE           4
 NUM_OF_CROSSOVER_POINTS   2
 MUTATION_RATE             0.0005
