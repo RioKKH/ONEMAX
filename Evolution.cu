@@ -132,6 +132,7 @@ void GPUEvolution::run(Parameters* prms)
 
         // printf("### Generation: %d\n", generation);
         runEvolutionCycle(prms);
+        // showSummary(*prms, elapsed_time, generation);
 
 #ifdef _SHOWPOPULATION
         // showSummary(*prms, elapsed_time, generation);
@@ -185,15 +186,16 @@ void GPUEvolution::initialize(Parameters* prms)
     cudaKernelGenerateFirstPopulation
         <<<blocks, threads>>>
         (mDevParentPopulation->getDeviceData(), getRandomSeed());
+    checkAndReportCudaError(__FILE__, __LINE__);
 
 #ifdef _ELITISM
     // printf("### Elitism_Init\n");
     cudaKernelGenerateFirstPopulation
         <<<blocks, threads>>>
         (mDevOffspringPopulation->getDeviceData(), getRandomSeed());
+    checkAndReportCudaError(__FILE__, __LINE__);
 #endif // _ELITISM
 
-    checkAndReportCudaError(__FILE__, __LINE__);
 } // end of initialize
 
 

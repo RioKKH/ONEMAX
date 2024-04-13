@@ -10,6 +10,11 @@ ifndef ARCH
 	ARCH = 75
 endif
 
+# 指定されたアーキテクチャがサポートされているかチェック
+ifeq ($(filter $(ARCH),$(SUPPORTED_ARCHS)), "")
+$(error Unsupported architecture: $(ARCH). Supported architectures are: $)SUPPORTED_ARCHS))
+endif
+
 # アーキテクチャがサポートリストに存在するか確認する
 # ifeq (a, b) ... endif
 #   aとbが等しい場合に、次のブロックのコードが実行される
@@ -34,7 +39,7 @@ LDFLAGS =
 debug =
 #debug += -D_SHOWPOPULATION
 debug += -D_SHOWRESULT
-#debug += -D_ELITISM
+debug += -D_ELITISM
 #debug= -g -D_DEBUG
 
 APPS = gpuonemax
