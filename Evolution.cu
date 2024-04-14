@@ -188,13 +188,15 @@ void GPUEvolution::initialize(Parameters* prms)
         (mDevParentPopulation->getDeviceData(), getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
 
-#ifdef _ELITISM
+    // エリート保存戦略でも疑似エリート保存戦略でも同様の初期化を行う
+    // そうしないと実行時間の計測がフェアにならないためである
+// #ifdef _ELITISM
     // printf("### Elitism_Init\n");
     cudaKernelGenerateFirstPopulation
         <<<blocks, threads>>>
         (mDevOffspringPopulation->getDeviceData(), getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
-#endif // _ELITISM
+// #endif // _ELITISM
 
 } // end of initialize
 
@@ -204,6 +206,10 @@ void GPUEvolution::initialize(Parameters* prms)
  */
 void GPUEvolution::runEvolutionCycle(Parameters* prms)
 {
+    static float total_elapsed_time_elitism = 0.0f;
+    float elapsed_time_elitism = 0.0f;
+    cudaEvent_t start_elitism, end_elitism;
+
     dim3 blocks;
     dim3 threads;
     GPUPopulation* temp;
@@ -300,15 +306,21 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     // showPopulationWithoutEvaluation(prms);
 #endif // _SHOWPOPULATION
 
+    cudaEventCreate(&start_elitism);
+    cudaEventCreate(&end_elitism);
+
 #ifdef _ELITISM
     //- エリート保存戦略 -----------------------------------
     // printf("### Elitism_elite\n");
-
+    cudaEventRecord(start_elitism, 0);
     mDevParentPopulation->elitism(prms);
+    cudaEventRecord(end_elitism, 0);
+    cudaEventSynchronize(end_elitism);
+
     checkAndReportCudaError(__FILE__, __LINE__);
 #else
-    // printf("### Elitism_pseudo_elite\n");
     //- 疑似エリート保存戦略 -------------------------------
+    // printf("### Elitism_pseudo_elite\n");
     blocks.x  = prms->getNumOfElite();
     blocks.y  = 1;
     blocks.z  = 1;
@@ -318,11 +330,18 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
+    cudaEventRecord(start_elitism, 0);
     pseudo_elitism
         <<<blocks, threads, threads.x * 2 * sizeof(int)>>>
         (mDevParentPopulation->getDeviceData());
+    cudaEventRecord(end_elitism, 0);
+    cudaEventSynchronize(end_elitism);
 
     checkAndReportCudaError(__FILE__, __LINE__);
+#endif // _ELITISM
+
+    cudaEventElapsedTime(&elapsed_time_elitism, start_elitism, end_elitism);
+    total_elapsed_time_elitism += elapsed_time_elitism;
 
     //- Elitesの差し込み -----------------------------------
     blocks.x  = prms->getNumOfElite();
@@ -334,13 +353,20 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
+#ifdef _ELITISM
+    replaceWithElites
+        <<<blocks, threads>>>
+        (mDevParentPopulation->getDeviceData(),
+         mDevOffspringPopulation->getDeviceData());
+    checkAndReportCudaError(__FILE__, __LINE__);
+#else
     replaceWithPseudoElites
         <<<blocks, threads>>>
         (mDevParentPopulation->getDeviceData(),
          mDevOffspringPopulation->getDeviceData());
-
     checkAndReportCudaError(__FILE__, __LINE__);
 #endif // _ELITISM
+
 
 #ifdef _SHOWPOPULATION
     printf("------------------------------------------------------------\n");
@@ -349,23 +375,8 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     showPopulation(prms);
 #endif // _SHOWPOPULATION
 
-    //- Elitesの差し込み -----------------------------------
-    blocks.x  = prms->getNumOfElite();
-    blocks.y  = 1;
-    blocks.z  = 1;
-
-    // threads.x = prms->getChromosomePseudo();
-    threads.x = prms->getChromosomeActual();
-    threads.y = 1;
-    threads.z = 1;
-
-    replaceWithElites
-        <<<blocks, threads>>>
-        (mDevParentPopulation->getDeviceData(),
-         mDevOffspringPopulation->getDeviceData());
-    checkAndReportCudaError(__FILE__, __LINE__);
-
     //- 現世代の子を次世代の親とする -----------------------------------
+    printf("### Elapsed time of elitism: %f\n", total_elapsed_time_elitism);
     temp = mDevParentPopulation;
     mDevParentPopulation = mDevOffspringPopulation;
     mDevOffspringPopulation = temp;

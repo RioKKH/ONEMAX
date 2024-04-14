@@ -15,7 +15,7 @@ run_nsight_systems()
 		--force-overwrite true \
 		-o "${OUTPUT}" \
 		-w true \
-		./${PROGRAM}
+		./"${PROGRAM}"
 }
 
 run_nsight_compute()
@@ -35,5 +35,11 @@ run_nsight_compute_one_kernel()
 		./"${PROGRAM}"
 }
 
-run_nsight_systems $1 $2
-#run_nsight_compute $1 $2
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	echo "${BASH_SOURCE[0]} is executed."
+	run_nsight_systems "${1}" "${2}"
+	#run_nsight_compute $1 $2
+else
+	echo "${BASH_SOURCE[0]} is sourced."
+fi
+
