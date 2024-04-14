@@ -21,13 +21,14 @@ if [[ -f ${RESULTFILE} ]]; then
 	rm "${RESULTFILE}"
 fi
 
-for _ in $(seq 1 1 ${RUNALL}); do
+for num in $(seq 1 1 ${RUNALL}); do
 	for pop in ${POPULATION}; do
 		sed -i "s/^POPSIZE.*$/POPSIZE                   ${pop}/" "${PARAMSFILE}"
 		for chr in ${CHROMOSOME}; do
 			echo "${pop} ${chr}"
 			sed -i "s/^CHROMOSOME.*$/CHROMOSOME                ${chr}/" "${PARAMSFILE}"
-			run_nsight_systems gpuonemax "${pop}_${chr}_${DATETIME}" > "${pop}_${chr}_${DATETIME}.log"
+			run_nsight_systems gpuonemax "${pop}_${chr}_${num}_${DATETIME}" \
+				> "${pop}_${chr}_${num}_${DATETIME}.log"
 			#./gpuonemax >> "${BACKUPFILE}"
 		done
 	done
