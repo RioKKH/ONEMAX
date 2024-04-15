@@ -306,16 +306,17 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     // showPopulationWithoutEvaluation(prms);
 #endif // _SHOWPOPULATION
 
-    cudaEventCreate(&start_elitism);
-    cudaEventCreate(&end_elitism);
+    // nsysを使って計測することにしたので、以下のコードはコメントアウト
+    // cudaEventCreate(&start_elitism);
+    // cudaEventCreate(&end_elitism);
 
 #ifdef _ELITISM
     //- エリート保存戦略 -----------------------------------
     // printf("### Elitism_elite\n");
-    cudaEventRecord(start_elitism, 0);
+    // cudaEventRecord(start_elitism, 0);
     mDevParentPopulation->elitism(prms);
-    cudaEventRecord(end_elitism, 0);
-    cudaEventSynchronize(end_elitism);
+    // cudaEventRecord(end_elitism, 0);
+    // cudaEventSynchronize(end_elitism);
 
     checkAndReportCudaError(__FILE__, __LINE__);
 #else
@@ -330,18 +331,18 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
-    cudaEventRecord(start_elitism, 0);
+    // cudaEventRecord(start_elitism, 0);
     pseudo_elitism
         <<<blocks, threads, threads.x * 2 * sizeof(int)>>>
         (mDevParentPopulation->getDeviceData());
-    cudaEventRecord(end_elitism, 0);
-    cudaEventSynchronize(end_elitism);
+    // cudaEventRecord(end_elitism, 0);
+    // cudaEventSynchronize(end_elitism);
 
     checkAndReportCudaError(__FILE__, __LINE__);
 #endif // _ELITISM
 
-    cudaEventElapsedTime(&elapsed_time_elitism, start_elitism, end_elitism);
-    total_elapsed_time_elitism += elapsed_time_elitism;
+    // cudaEventElapsedTime(&elapsed_time_elitism, start_elitism, end_elitism);
+    // total_elapsed_time_elitism += elapsed_time_elitism;
 
     //- Elitesの差し込み -----------------------------------
     blocks.x  = prms->getNumOfElite();
@@ -376,7 +377,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 #endif // _SHOWPOPULATION
 
     //- 現世代の子を次世代の親とする -----------------------------------
-    printf("### Elapsed time of elitism: %f\n", total_elapsed_time_elitism);
+    // printf("### Elapsed time of elitism: %f\n", total_elapsed_time_elitism);
     temp = mDevParentPopulation;
     mDevParentPopulation = mDevOffspringPopulation;
     mDevOffspringPopulation = temp;

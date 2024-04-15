@@ -10,12 +10,13 @@ run_nsight_systems()
 	local PROGRAM=$1
 	local OUTPUT=$2
 	nsys profile \
-		-t cuda,osrt,nvtx,cudnn,cublas \
+		-t cuda,osrt, \
 		--stats=true \
+		-w true \
 		--force-overwrite true \
 		-o "${OUTPUT}" \
-		-w true \
 		./"${PROGRAM}"
+		# -t cuda,osrt,nvtx,cudnn,cublas \
 }
 
 run_nsight_compute()

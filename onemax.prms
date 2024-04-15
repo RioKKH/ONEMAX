@@ -1,5 +1,5 @@
-POPSIZE                   32
-CHROMOSOME                32
+POPSIZE                   1024
+CHROMOSOME                1024
 NUM_OF_GENERATIONS        512
 NUM_OF_ELITE              8
 TOURNAMENT_SIZE           4

@@ -4,8 +4,8 @@ source ./libnsys.sh
 
 CWD=$(pwd); readonly CWD
 
-#RUNALL=1
-RUNALL=10
+RUNALL=1
+#RUNALL=10
 #RUNALL=30
 #POPULATION=$(seq 32 1 32); readonly POPULATION
 #CHROMOSOME=$(seq 32 1 32); readonly CHROMOSOME
