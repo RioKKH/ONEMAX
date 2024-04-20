@@ -206,9 +206,14 @@ void GPUEvolution::initialize(Parameters* prms)
  */
 void GPUEvolution::runEvolutionCycle(Parameters* prms)
 {
-    static float total_elapsed_time_elitism = 0.0f;
-    float elapsed_time_elitism = 0.0f;
-    cudaEvent_t start_elitism, end_elitism;
+    // static float total_elapsed_time_elitism = 0.0f;
+    // float elapsed_time_elitism = 0.0f;
+    // cudaEvent_t start_elitism, end_elitism;
+
+#ifdef _MEASURE_KERNEL_TIME
+    float elapsed_time = 0.0f;
+    cudaEvent_t start, end;
+#endif // _MEASURE_KERNEL_TIME
 
     dim3 blocks;
     dim3 threads;
@@ -237,11 +242,25 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     // evaluationsingle
     //     <<< blocks, threads>>>
     //     (mDevParentPopulation->getDeviceData());
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+    cudaEventRecord(start, 0);
+#endif // _MEASURE_KERNEL_TIME
+
     evaluation
         <<< blocks, threads, prms->getChromosomePseudo() * sizeof(int)>>>
         (mDevParentPopulation->getDeviceData());
-
     checkAndReportCudaError(__FILE__, __LINE__);
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsed_time, start, end);
+    mKernelTimes.evaluationTime += elapsed_time;
+#endif // _MEASURE_KERNEL_TIME
+
     // mDevTempPopulation   = mDevParentPopulation;
 
     // セレクション ---------------------------------------
@@ -255,12 +274,25 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+    cudaEventRecord(start, 0);
+#endif // _MEASURE_KERNEL_TIME
+
     cudaKernelSelection<<<blocks, threads>>>(
             mDevParentPopulation->getDeviceData(),
             d_selectedParents1,
             d_selectedParents2,
             getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsed_time, start, end);
+    mKernelTimes.selectionTime += elapsed_time;
+#endif // _MEASURE_KERNEL_TIME
 
     // クロスオーバー -------------------------------------
     blocks.x  = prms->getPopsizeActual();
@@ -273,14 +305,26 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+    cudaEventRecord(start, 0);
+#endif // _MEASURE_KERNEL_TIME
+
     cudaKernelCrossover<<<blocks, threads>>>(
             mDevParentPopulation->getDeviceData(),
             mDevOffspringPopulation->getDeviceData(),
             d_selectedParents1,
             d_selectedParents2,
             getRandomSeed());
-
     checkAndReportCudaError(__FILE__, __LINE__);
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsed_time, start, end);
+    mKernelTimes.crossoverTime += elapsed_time;
+#endif // _MEASURE_KERNEL_TIME
 
     // ミューテーション -----------------------------------
     blocks.x  = prms->getPopsizeActual();
@@ -292,11 +336,23 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.y = 1;
     threads.z = 1;
 
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+    cudaEventRecord(start, 0);
+#endif // _MEASURE_KERNEL_TIME
+
     cudaKernelMutation<<<blocks, threads>>>(
             mDevOffspringPopulation->getDeviceData(),
             getRandomSeed());
-
     checkAndReportCudaError(__FILE__, __LINE__);
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsed_time, start, end);
+    mKernelTimes.mutationTime += elapsed_time;
+#endif // _MEASURE_KERNEL_TIME
 
 #ifdef _SHOWPOPULATION
     printf("------------------------------------------------------------\n");
@@ -309,6 +365,12 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     // nsysを使って計測することにしたので、以下のコードはコメントアウト
     // cudaEventCreate(&start_elitism);
     // cudaEventCreate(&end_elitism);
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+    cudaEventRecord(start, 0);
+#endif // _MEASURE_KERNEL_TIME
 
 #ifdef _ELITISM
     //- エリート保存戦略 -----------------------------------
@@ -341,6 +403,13 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     checkAndReportCudaError(__FILE__, __LINE__);
 #endif // _ELITISM
 
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsed_time, start, end);
+    mKernelTimes.elitismTime += elapsed_time;
+#endif // _MEASURE_KERNEL_TIME
+
     // cudaEventElapsedTime(&elapsed_time_elitism, start_elitism, end_elitism);
     // total_elapsed_time_elitism += elapsed_time_elitism;
 
@@ -353,6 +422,12 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);
+    cudaEventRecord(start, 0);
+#endif // _MEASURE_KERNEL_TIME
 
 #ifdef _ELITISM
     replaceWithElites
@@ -367,6 +442,13 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
          mDevOffspringPopulation->getDeviceData());
     checkAndReportCudaError(__FILE__, __LINE__);
 #endif // _ELITISM
+
+#ifdef _MEASURE_KERNEL_TIME
+    cudaEventRecord(end, 0);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&elapsed_time, start, end);
+    mKernelTimes.replaceWithElitesTime += elapsed_time;
+#endif // _MEASURE_KERNEL_TIME
 
 
 #ifdef _SHOWPOPULATION
@@ -425,6 +507,14 @@ void GPUEvolution::showSummary(const Parameters& prms, const float& elapsedTime,
         << "," << *maxElementPtr
         << "," << *minElementPtr
         << "," << fitnessSum
+#ifdef _MEASURE_KERNEL_TIME
+        << "," << mKernelTimes.evaluationTime
+        << "," << mKernelTimes.selectionTime
+        << "," << mKernelTimes.crossoverTime
+        << "," << mKernelTimes.mutationTime
+        << "," << mKernelTimes.elitismTime
+        << "," << mKernelTimes.replaceWithElitesTime
+#endif // _MEASURE_KERNEL_TIME
         << std::endl;
 
     return;

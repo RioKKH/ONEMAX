@@ -4,6 +4,16 @@
 #include "Parameters.h"
 #include "Population.h"
 
+struct KernelTimes {
+    float evaluationTime = 0.0f;
+    float selectionTime = 0.0f;
+    float crossoverTime = 0.0f;
+    float mutationTime = 0.0f;
+    float elitismTime = 0.0f;
+    float replaceWithElitesTime = 0.0f;
+    // float totalKernelTime = 0.0f;
+};
+
 class GPUEvolution
 {
 public:
@@ -74,6 +84,9 @@ protected:
     // void showPopulation(Parameters* prms, std::uint16_t generation, std::uint16_t type);
 
     // int elitism(Parameters* prms);
+    
+private:
+    KernelTimes mKernelTimes; // カーネルの実行時間を格納する構造体
 
 }; // end of GPU_Evolution
 
