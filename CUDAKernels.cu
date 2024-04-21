@@ -335,13 +335,19 @@ __global__ void replaceWithPseudoElites(
     // 子の世代のオフセット値を計算する
     uint32_t OFFSPRING_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * offspringIdx;
 
-    // 子の世代の個体の遺伝子を親の世代のエリート個体の遺伝子で置き換える
-    offspringPopulation->population[OFFSPRING_OFFSET + geneIdx]
-        = parentPopulation->population[PARENT_ELITE_OFFSET + geneIdx];
+    // 全てのスレッドが有効性を判断する
+    bool valid = offspringIdx < gpuEvoPrms.POPSIZE_ACTUAL;
 
-    if (geneIdx == 0) {
-        offspringPopulation->fitness[offspringIdx]
-            = parentPopulation->fitness[parentPopulation->elitesIdx[eliteIdx]];
+    if (valid) {
+
+        // 子の世代の個体の遺伝子を親の世代のエリート個体の遺伝子で置き換える
+        offspringPopulation->population[OFFSPRING_OFFSET + geneIdx]
+            = parentPopulation->population[PARENT_ELITE_OFFSET + geneIdx];
+
+        if (geneIdx == 0) {
+            offspringPopulation->fitness[offspringIdx]
+                = parentPopulation->fitness[parentPopulation->elitesIdx[eliteIdx]];
+        }
     }
 }
 
