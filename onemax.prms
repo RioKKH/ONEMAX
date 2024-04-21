@@ -1,6 +1,6 @@
-POPSIZE                   1024
-CHROMOSOME                1024
-NUM_OF_GENERATIONS        512
+POPSIZE                   96
+CHROMOSOME                32
+NUM_OF_GENERATIONS        3
 NUM_OF_ELITE              8
 TOURNAMENT_SIZE           4
 NUM_OF_CROSSOVER_POINTS   2

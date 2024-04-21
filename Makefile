@@ -39,7 +39,7 @@ LDFLAGS =
 debug =
 #debug += -D_SHOWPOPULATION
 debug += -D_SHOWRESULT
-debug += -D_ELITISM
+#debug += -D_ELITISM
 #debug= -g -D_DEBUG
 debug += -D_MEASURE_KERNEL_TIME
 

@@ -206,7 +206,7 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     const int EliteIdx         = blockIdx.x;  // index of elite
     const int localFitnessIdx  = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
     const int globalFitnessIdx = threadIdx.x + blockIdx.x * blockDim.x; // Population size
-    const int ACTUALPOPSIZE    = gpuEvoPrms.POPSIZE_ACTUAL;
+    // const int ACTUALPOPSIZE    = gpuEvoPrms.POPSIZE_ACTUAL;
 
     extern __shared__ volatile int s_fitness[];
 
@@ -218,21 +218,20 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     // s_fitness[localFitnessIdx + OFFSET] = localFitnessIdx < gpuEvoPrms.POPSIZE_ACTUAL
     //     ? globalFitnessIdx : 0;
 
-    if (localFitnessIdx < gpuEvoPrms.POPSIZE_ACTUAL)
+    if (globalFitnessIdx < gpuEvoPrms.POPSIZE_ACTUAL)
     {
         s_fitness[localFitnessIdx] = populationData->fitness[globalFitnessIdx];
         s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
     }
     else
     {
-        s_fitness[localFitnessIdx] = 0;
+        s_fitness[localFitnessIdx] = INT_MIN; // 最大値を探すための初期値としてINT_MINを使用
         s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
     }
     __syncthreads();
 
     // ブロック単位でのリダクション
-    // for (int stride = OFFSET/2; stride >= 32; stride >>= 1)
-    for (int stride = OFFSET/2; stride >= 1; stride >>= 1)
+    for (int stride = OFFSET/2; stride > 0; stride >>= 1)
     {
         if (localFitnessIdx < stride)
         {
@@ -250,6 +249,7 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     {
         // s_fitness[OFFSET]には各ブロックの疑似エリートの
         // インデックスが格納されているので、それをpopulationData->elitesIdxに格納する
+        // populationData->elitesIdx[EliteIdx] = s_fitness[0 + OFFSET];
         populationData->elitesIdx[EliteIdx] = s_fitness[OFFSET];
     }
 }
