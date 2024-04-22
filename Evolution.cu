@@ -377,7 +377,6 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     //- エリート保存戦略 -----------------------------------
     // printf("### Elitism_elite\n");
     mDevParentPopulation->elitism(prms);
-
     checkAndReportCudaError(__FILE__, __LINE__);
 #else
     //- 疑似エリート保存戦略 -------------------------------
@@ -449,10 +448,12 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 #endif // _MEASURE_KERNEL_TIME
 
 
+#ifdef _SHOWPOPULATION
     printf("------------------------------------------------------------\n");
     printf("### showPopulation right after elitism (w/o  evaluation)   -\n");
     printf("------------------------------------------------------------\n");
     showPopulation(prms);
+#endif // _SHOWPOPULATION
 
     //- 現世代の子を次世代の親とする -----------------------------------
     // printf("### Elapsed time of elitism: %f\n", total_elapsed_time_elitism);
