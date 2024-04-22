@@ -3,7 +3,7 @@
 CWD=$(pwd); readonly CWD
 
 #RUNALL=1
-RUNALL=10
+RUNALL=15
 #RUNALL=30
 #POPULATION=$(seq 32 1 32); readonly POPULATION
 #CHROMOSOME=$(seq 32 1 32); readonly CHROMOSOME
@@ -18,13 +18,12 @@ if [[ -f ${RESULTFILE} ]]; then
 	mv "${RESULTFILE}" "${BACKUPFILE}"
 	rm "${RESULTFILE}"
 fi
-
-for _ in $(seq 1 1 ${RUNALL}); do
+for num in $(seq 1 1 ${RUNALL}); do
 	for pop in ${POPULATION}; do
 		sed -i "s/^POPSIZE.*$/POPSIZE                   ${pop}/" "${PARAMSFILE}"
 		for chr in ${CHROMOSOME}; do
-			echo "${pop} ${chr}"
 			sed -i "s/^CHROMOSOME.*$/CHROMOSOME                ${chr}/" "${PARAMSFILE}"
+			echo "${pop} ${chr}" "${num}"
 			./gpuonemax >> "${BACKUPFILE}"
 		done
 	done
