@@ -129,9 +129,9 @@ void GPUEvolution::run(Parameters* prms)
     // printf("### EvoCycle\n");
     for (generation = 0; generation < prms->getNumOfGenerations(); ++generation)
     {
-
-        // printf("### Generation: %d\n", generation);
+        printf("### Generation: %d\n", generation);
         runEvolutionCycle(prms);
+        // showPopulation(prms);
         // showSummary(*prms, elapsed_time, generation);
 
 #ifdef _SHOWPOPULATION
@@ -143,6 +143,7 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);
 #ifdef _SHOWRESULT
+    // showPopulation(prms);
     showSummary(*prms, elapsed_time, generation);
 #endif // SHOWRESULT
 }
@@ -375,10 +376,7 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 #ifdef _ELITISM
     //- エリート保存戦略 -----------------------------------
     // printf("### Elitism_elite\n");
-    // cudaEventRecord(start_elitism, 0);
     mDevParentPopulation->elitism(prms);
-    // cudaEventRecord(end_elitism, 0);
-    // cudaEventSynchronize(end_elitism);
 
     checkAndReportCudaError(__FILE__, __LINE__);
 #else
@@ -451,12 +449,10 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
 #endif // _MEASURE_KERNEL_TIME
 
 
-#ifdef _SHOWPOPULATION
     printf("------------------------------------------------------------\n");
     printf("### showPopulation right after elitism (w/o  evaluation)   -\n");
     printf("------------------------------------------------------------\n");
     showPopulation(prms);
-#endif // _SHOWPOPULATION
 
     //- 現世代の子を次世代の親とする -----------------------------------
     // printf("### Elapsed time of elitism: %f\n", total_elapsed_time_elitism);
@@ -622,8 +618,6 @@ void GPUEvolution::showPopulation(Parameters* prms)
                 mHostParentPopulation->getDeviceData()->fitness_index_sorted[i]);
         printf("fitness_sorted:%d\n", mHostParentPopulation->getDeviceData()->fitness_sorted[i]);
     }
-#endif // _ELITISM
-
 
     // Print elites in parent population
     int tempindex = 0;
@@ -638,6 +632,29 @@ void GPUEvolution::showPopulation(Parameters* prms)
         printf("elite%d : %d , %d\n", k, tempindex, tempvalue);
     }
     printf("\n");
+#else
+    printf("=== Parent population ===\n");
+    for (int i = 0; i < psize; ++i) // Population size
+    {
+        printf("%3d,", i);
+        for (int j = 0; j < acsize; ++j) // Actual chromosome size
+        {
+            printf("%d", mHostParentPopulation->getDeviceData()->population[i * pcsize + j]);
+        }
+        printf(":%d",  mHostParentPopulation->getDeviceData()->fitness_index[i]);
+        printf(":%d\n", mHostParentPopulation->getDeviceData()->fitness[i]);
+    }
+    // Print elites in parent population
+    int tempindex = 0;
+    int tempvalue = 0;
+    printf("\nElites in parent population\n");
+    for (int k = 0; k < esize; ++k)
+    {
+        tempindex = mHostParentPopulation->getDeviceData()->elitesIdx[k];
+        tempvalue = mHostParentPopulation->getDeviceData()->fitness[tempindex];
+        printf("elite%d : %d , %d\n", k, tempindex, tempvalue);
+    }
+#endif // _ELITISM
 
     // evaluationsingle
     //     <<< blocks, threads>>>
@@ -662,10 +679,12 @@ void GPUEvolution::showPopulation(Parameters* prms)
         printf(":%d", mHostOffspringPopulation->getDeviceData()->fitness_index[i]);
         printf(":%d\n", mHostOffspringPopulation->getDeviceData()->fitness[i]);
     }
+#ifdef _ELITISM
     printf("=== Offspring population sorted ===\n");
     for (int i = 0; i < psize; ++i)
     {
         printf("index_sorted:%d ",  mHostOffspringPopulation->getDeviceData()->fitness_index_sorted[i]);
         printf("fitness_sorted:%d\n", mHostOffspringPopulation->getDeviceData()->fitness_sorted[i]);
     }
+#endif // _ELITISM
 }

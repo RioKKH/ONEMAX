@@ -206,7 +206,7 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     const int EliteIdx         = blockIdx.x;  // index of elite
     const int localFitnessIdx  = threadIdx.x; // size of POPULATION / NUM_OF_ELITE
     const int globalFitnessIdx = threadIdx.x + blockIdx.x * blockDim.x; // Population size
-    const int ACTUALPOPSIZE    = gpuEvoPrms.POPSIZE_ACTUAL;
+    // const int ACTUALPOPSIZE    = gpuEvoPrms.POPSIZE_ACTUAL;
 
     extern __shared__ volatile int s_fitness[];
 
@@ -218,21 +218,20 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     // s_fitness[localFitnessIdx + OFFSET] = localFitnessIdx < gpuEvoPrms.POPSIZE_ACTUAL
     //     ? globalFitnessIdx : 0;
 
-    if (localFitnessIdx < gpuEvoPrms.POPSIZE_ACTUAL)
+    if (globalFitnessIdx < gpuEvoPrms.POPSIZE_ACTUAL)
     {
         s_fitness[localFitnessIdx] = populationData->fitness[globalFitnessIdx];
         s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
     }
     else
     {
-        s_fitness[localFitnessIdx] = 0;
+        s_fitness[localFitnessIdx] = INT_MIN; // 最大値を探すための初期値としてINT_MINを使用
         s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
     }
     __syncthreads();
 
     // ブロック単位でのリダクション
-    // for (int stride = OFFSET/2; stride >= 32; stride >>= 1)
-    for (int stride = OFFSET/2; stride >= 1; stride >>= 1)
+    for (int stride = OFFSET/2; stride > 0; stride >>= 1)
     {
         if (localFitnessIdx < stride)
         {
@@ -250,6 +249,7 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     {
         // s_fitness[OFFSET]には各ブロックの疑似エリートの
         // インデックスが格納されているので、それをpopulationData->elitesIdxに格納する
+        // populationData->elitesIdx[EliteIdx] = s_fitness[0 + OFFSET];
         populationData->elitesIdx[EliteIdx] = s_fitness[OFFSET];
     }
 }
@@ -323,7 +323,8 @@ __global__ void replaceWithPseudoElites(
 
     // 何個体ごとにエリートを選択するかを計算する。
     // こちらは実際の個体数で計算する。
-    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_ACTUAL / NUM_OF_ELITE;
+    uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_PSEUDO / NUM_OF_ELITE; // これが正しいと思う
+    // uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_ACTUAL / NUM_OF_ELITE; // これだめだろ
     // uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / NUM_OF_ELITE;
     // Offspringの何個体目の個体をエリートで置き換えるかを計算する。
     uint32_t offspringIdx = eliteIdx * ELITE_INTERVAL;
@@ -335,13 +336,19 @@ __global__ void replaceWithPseudoElites(
     // 子の世代のオフセット値を計算する
     uint32_t OFFSPRING_OFFSET = gpuEvoPrms.CHROMOSOME_PSEUDO * offspringIdx;
 
-    // 子の世代の個体の遺伝子を親の世代のエリート個体の遺伝子で置き換える
-    offspringPopulation->population[OFFSPRING_OFFSET + geneIdx]
-        = parentPopulation->population[PARENT_ELITE_OFFSET + geneIdx];
+    // 全てのスレッドが有効性を判断する
+    bool valid = offspringIdx < gpuEvoPrms.POPSIZE_ACTUAL;
 
-    if (geneIdx == 0) {
-        offspringPopulation->fitness[offspringIdx]
-            = parentPopulation->fitness[parentPopulation->elitesIdx[eliteIdx]];
+    if (valid) {
+
+        // 子の世代の個体の遺伝子を親の世代のエリート個体の遺伝子で置き換える
+        offspringPopulation->population[OFFSPRING_OFFSET + geneIdx]
+            = parentPopulation->population[PARENT_ELITE_OFFSET + geneIdx];
+
+        if (geneIdx == 0) {
+            offspringPopulation->fitness[offspringIdx]
+                = parentPopulation->fitness[parentPopulation->elitesIdx[eliteIdx]];
+        }
     }
 }
 
