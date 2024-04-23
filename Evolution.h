@@ -40,7 +40,8 @@ protected:
     void initialize(Parameters* prms);
 
     /// Run evolution
-    void runEvolutionCycle(Parameters* prms);
+    void runEvolutionCycle(Parameters* prms, uint32_t *, uint32_t *);
+    // void runEvolutionCycle(Parameters* prms);
 
     /// Init random generator seed;
     void initRandomSeed();

@@ -325,7 +325,7 @@ __global__ void replaceWithPseudoElites(
     // こちらは実際の個体数で計算する。
     uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_PSEUDO / NUM_OF_ELITE; // これが正しいと思う
     // uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE_ACTUAL / NUM_OF_ELITE; // これだめだろ
-    // uint32_t ELITE_INTERVAL = gpuEvoPrms.POPSIZE / NUM_OF_ELITE;
+
     // Offspringの何個体目の個体をエリートで置き換えるかを計算する。
     uint32_t offspringIdx = eliteIdx * ELITE_INTERVAL;
 

@@ -111,6 +111,11 @@ GPUEvolution::~GPUEvolution()
  */
 void GPUEvolution::run(Parameters* prms)
 {
+    // GPUメモリを事前に確保する
+    uint32_t *d_selectedParents1, *d_selectedParents2;
+    cudaMalloc(&d_selectedParents1, prms->getPopsizeActual() * sizeof(uint32_t));
+    cudaMalloc(&d_selectedParents2, prms->getPopsizeActual() * sizeof(uint32_t));
+
     // 実行時間計測用
     float elapsed_time = 0.0f;
     // イベントを取り扱う変数
@@ -130,7 +135,8 @@ void GPUEvolution::run(Parameters* prms)
     for (generation = 0; generation < prms->getNumOfGenerations(); ++generation)
     {
         // printf("### Generation: %d\n", generation);
-        runEvolutionCycle(prms);
+        runEvolutionCycle(prms, d_selectedParents1, d_selectedParents2);
+        // runEvolutionCycle(prms);
         // showPopulation(prms);
         // showSummary(*prms, elapsed_time, generation);
 
@@ -146,6 +152,10 @@ void GPUEvolution::run(Parameters* prms)
     // showPopulation(prms);
     showSummary(*prms, elapsed_time, generation);
 #endif // SHOWRESULT
+
+    // GPUメモリを解放する
+    cudaFree(d_selectedParents1);
+    cudaFree(d_selectedParents2);
 }
 
 
@@ -205,7 +215,10 @@ void GPUEvolution::initialize(Parameters* prms)
 /**
  * Run evolutionary cycle for defined number of generations
  */
-void GPUEvolution::runEvolutionCycle(Parameters* prms)
+void GPUEvolution::runEvolutionCycle(
+        Parameters* prms,
+        uint32_t *d_selectedParents1,
+        uint32_t *d_selectedParents2)
 {
     // static float total_elapsed_time_elitism = 0.0f;
     // float elapsed_time_elitism = 0.0f;
@@ -220,14 +233,14 @@ void GPUEvolution::runEvolutionCycle(Parameters* prms)
     dim3 threads;
     GPUPopulation* temp;
 
-    // h_selectedParents1, 2のメモリを確保する
-    uint32_t *h_selectedParents1 = new uint32_t[prms->getPopsizeActual()];
-    uint32_t *h_selectedParents2 = new uint32_t[prms->getPopsizeActual()];
+    // // h_selectedParents1, 2のメモリを確保する
+    // uint32_t *h_selectedParents1 = new uint32_t[prms->getPopsizeActual()];
+    // uint32_t *h_selectedParents2 = new uint32_t[prms->getPopsizeActual()];
 
     // d_selectedParents1, 2のメモリを確保する
-    uint32_t *d_selectedParents1, *d_selectedParents2;
-    cudaMalloc(&d_selectedParents1, prms->getPopsizeActual() * sizeof(uint32_t));
-    cudaMalloc(&d_selectedParents2, prms->getPopsizeActual() * sizeof(uint32_t));
+    // uint32_t *d_selectedParents1, *d_selectedParents2;
+    // cudaMalloc(&d_selectedParents1, prms->getPopsizeActual() * sizeof(uint32_t));
+    // cudaMalloc(&d_selectedParents2, prms->getPopsizeActual() * sizeof(uint32_t));
 
     //- Fitness評価 ---------------------------------------
     blocks.x  = prms->getPopsizeActual();
