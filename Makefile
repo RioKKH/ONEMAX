@@ -41,7 +41,7 @@ debug =
 debug += -D_SHOWRESULT
 #debug += -D_ELITISM
 #debug= -g -D_DEBUG
-debug += -D_MEASURE_KERNEL_TIME
+#debug += -D_MEASURE_KERNEL_TIME
 
 APPS = gpuonemax
 OBJS = CUDAKernels.o Evolution.o Parameters.o Population.o main.o
