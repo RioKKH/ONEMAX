@@ -32,7 +32,7 @@ NVCC_OPTIONS = --generate-code arch=compute_$(ARCH),code=sm_$(ARCH)
 CPPFLAGS=-O3
 #CPPFLAGS=-O3 -Xptxas=-v
 #CPPINCLUDE=-I/usr/local/cuda/include -I/usr/local/cuda/samples/common/inc
-CPPINCLUDE=-I./Common
+CPPINCLUDE=-I./Common -I/usr/local/cuda/include -I/usr/local/cuda/samples/common/inc
 #CPPINCLUDE=-I./Common  -I/usr/include/c++/9/
 CFLAGS=
 LDFLAGS =
