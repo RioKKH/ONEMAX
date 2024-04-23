@@ -50,6 +50,9 @@ OBJS = CUDAKernels.o Evolution.o Parameters.o Population.o main.o
 all: $(APPS)
 build: $(APPS)
 
+%.o: %.cpp
+	$(CPP) $(CPPFLAGS) $(debug) $(CPPINCLUDE) -o $@ -c $<
+
 %.o: %.cu
 	$(NVCC) $(NVCC_OPTIONS) $(debug) $(CPPINCLUDE) $(CPPFLAGS) -o $@ -c $<
 
