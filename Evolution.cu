@@ -116,6 +116,7 @@ void GPUEvolution::run(Parameters* prms)
     cudaMalloc(&d_selectedParents1, prms->getPopsizeActual() * sizeof(uint32_t));
     cudaMalloc(&d_selectedParents2, prms->getPopsizeActual() * sizeof(uint32_t));
 
+#ifdef _OFFLOAD
     // 実行時間計測用
     float elapsed_time = 0.0f;
     // イベントを取り扱う変数
@@ -123,13 +124,17 @@ void GPUEvolution::run(Parameters* prms)
     // イベントのクリエイト
     cudaEventCreate(&start);
     cudaEventCreate(&end);
+#endif // _OFFLOAD
 
     uint16_t generation = 0;
     // printf("### Initialize\n");
     initialize(prms);
 
+#ifdef _OFFLOAD
     // 実行時間測定開始
     cudaEventRecord(start, 0);
+#endif // _OFFLOAD
+
 
     // printf("### EvoCycle\n");
     for (generation = 0; generation < prms->getNumOfGenerations(); ++generation)
@@ -145,13 +150,15 @@ void GPUEvolution::run(Parameters* prms)
 #endif // SHOWPOPULATION
     }
 
+#ifdef _OFFLOAD
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);
-#ifdef _SHOWRESULT
-    // showPopulation(prms);
+#endif // _OFFLOAD
+
+#if defined(_OFFLOAD) && defined(_SHOWRESULT)
     showSummary(*prms, elapsed_time, generation);
-#endif // SHOWRESULT
+#endif // OFFLOAD && SHOWRESULT
 
     // GPUメモリを解放する
     cudaFree(d_selectedParents1);
