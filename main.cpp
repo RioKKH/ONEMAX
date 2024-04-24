@@ -10,7 +10,7 @@ static int show_summary(const float& elapsed_time, const Parameters& prms);
  */
 int main(int argc, char** argv)
 {
-#ifndef _OFFLOAD
+#if defined(_SHOW_LAST_RESULT) && !defined(_OFFLOAD)
     float elapsed_time = 0.0f;
     cudaEvent_t start, end;
     cudaEventCreate(&start);
@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     GPUEvolution GPU_Evolution(prms);
     GPU_Evolution.run(prms);
 
-#ifndef _OFFLOAD
+#if defined(_SHOW_LAST_RESULT) && !defined(_OFFLOAD)
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&elapsed_time, start, end);

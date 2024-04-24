@@ -83,10 +83,6 @@ GPUEvolution::GPUEvolution(Parameters* prms)
                 prms->getChromosomePseudo(),
                 prms->getNumOfElite());
 
-    // Copy population from CPU to GPU
-    // mDevParentPopulation->copyToDevice(mHostParentPopulation->getDeviceData());
-    // mDevOffspringPopulation->copyToDevice(mHostOffspringPopulation->getDeviceData());
-
     mMultiprocessorCount = prop.multiProcessorCount;
     // Initialize Random seed
     initRandomSeed();
@@ -127,7 +123,6 @@ void GPUEvolution::run(Parameters* prms)
 #endif // _OFFLOAD
 
     uint16_t generation = 0;
-    // printf("### Initialize\n");
     initialize(prms);
 
 #ifdef _OFFLOAD
@@ -135,19 +130,14 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventRecord(start, 0);
 #endif // _OFFLOAD
 
-
-    // printf("### EvoCycle\n");
     for (generation = 0; generation < prms->getNumOfGenerations(); ++generation)
     {
-        // printf("### Generation: %d\n", generation);
         runEvolutionCycle(prms, d_selectedParents1, d_selectedParents2);
-        // runEvolutionCycle(prms);
-        // showPopulation(prms);
-        // showSummary(*prms, elapsed_time, generation);
-
-#ifdef _SHOWPOPULATION
-        // showSummary(*prms, elapsed_time, generation);
-#endif // SHOWPOPULATION
+#if defined(_SHOW_EACH_GEN_RESULT) && defined(_OFFLOAD)
+        showSummary(*prms, elapsed_time, generation);
+#elif defined(_SHOW_EACH_GEN_RESULT) && !defined(_OFFLOAD)
+        showSummary(*prms, generation);
+#endif // SHOWEACHGENRESULT
     }
 
 #ifdef _OFFLOAD
@@ -156,9 +146,9 @@ void GPUEvolution::run(Parameters* prms)
     cudaEventElapsedTime(&elapsed_time, start, end);
 #endif // _OFFLOAD
 
-#if defined(_OFFLOAD) && defined(_SHOWRESULT)
+#if defined(_OFFLOAD) && defined(_SHOW_LAST_RESULT)
     showSummary(*prms, elapsed_time, generation);
-#endif // OFFLOAD && SHOWRESULT
+#endif // OFFLOAD && SHOW_LAST_RESULT
 
     // GPUメモリを解放する
     cudaFree(d_selectedParents1);
@@ -188,7 +178,6 @@ void GPUEvolution::initialize(Parameters* prms)
 
 
     //- 初期集団生成 ---------
-    //- blocks.x  = prms->getPopsize() / 2;
     //- 1つのスレッドで1つの個体を初期化させるので、blocksには個体の数をそのまま登録する
     blocks.x  = prms->getPopsizeActual();
     blocks.y  = 1;
@@ -196,7 +185,6 @@ void GPUEvolution::initialize(Parameters* prms)
 
     //- イニシャライズでは本当のサイズの範囲のみだけが対象になるので、
     //- CHROMOSOME_ACTUALとしておく
-    // threads.x = 1;
     threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
@@ -208,13 +196,10 @@ void GPUEvolution::initialize(Parameters* prms)
 
     // エリート保存戦略でも疑似エリート保存戦略でも同様の初期化を行う
     // そうしないと実行時間の計測がフェアにならないためである
-// #ifdef _ELITISM
-    // printf("### Elitism_Init\n");
     cudaKernelGenerateFirstPopulation
         <<<blocks, threads>>>
         (mDevOffspringPopulation->getDeviceData(), getRandomSeed());
     checkAndReportCudaError(__FILE__, __LINE__);
-// #endif // _ELITISM
 
 } // end of initialize
 
@@ -227,10 +212,6 @@ void GPUEvolution::runEvolutionCycle(
         uint32_t *d_selectedParents1,
         uint32_t *d_selectedParents2)
 {
-    // static float total_elapsed_time_elitism = 0.0f;
-    // float elapsed_time_elitism = 0.0f;
-    // cudaEvent_t start_elitism, end_elitism;
-
 #ifdef _MEASURE_KERNEL_TIME
     float elapsed_time = 0.0f;
     cudaEvent_t start, end;
@@ -239,15 +220,6 @@ void GPUEvolution::runEvolutionCycle(
     dim3 blocks;
     dim3 threads;
     GPUPopulation* temp;
-
-    // // h_selectedParents1, 2のメモリを確保する
-    // uint32_t *h_selectedParents1 = new uint32_t[prms->getPopsizeActual()];
-    // uint32_t *h_selectedParents2 = new uint32_t[prms->getPopsizeActual()];
-
-    // d_selectedParents1, 2のメモリを確保する
-    // uint32_t *d_selectedParents1, *d_selectedParents2;
-    // cudaMalloc(&d_selectedParents1, prms->getPopsizeActual() * sizeof(uint32_t));
-    // cudaMalloc(&d_selectedParents2, prms->getPopsizeActual() * sizeof(uint32_t));
 
     //- Fitness評価 ---------------------------------------
     blocks.x  = prms->getPopsizeActual();
@@ -282,8 +254,6 @@ void GPUEvolution::runEvolutionCycle(
     mKernelTimes.evaluationTime += elapsed_time;
 #endif // _MEASURE_KERNEL_TIME
 
-    // mDevTempPopulation   = mDevParentPopulation;
-
     // セレクション ---------------------------------------
     // セレクションのブロックサイズとスレッドサイズは経験的に決める
     blocks.x = 32;
@@ -291,7 +261,6 @@ void GPUEvolution::runEvolutionCycle(
     blocks.z = 1;
 
     threads.x = prms->getPopsizeActual() / blocks.x;
-    // threads.x = prms->getPopsize() / blocks.x;
     threads.y = 1;
     threads.z = 1;
 
@@ -383,10 +352,6 @@ void GPUEvolution::runEvolutionCycle(
     // showPopulationWithoutEvaluation(prms);
 #endif // _SHOWPOPULATION
 
-    // nsysを使って計測することにしたので、以下のコードはコメントアウト
-    // cudaEventCreate(&start_elitism);
-    // cudaEventCreate(&end_elitism);
-
 #ifdef _MEASURE_KERNEL_TIME
     cudaEventCreate(&start);
     cudaEventCreate(&end);
@@ -395,18 +360,15 @@ void GPUEvolution::runEvolutionCycle(
 
 #ifdef _ELITISM
     //- エリート保存戦略 -----------------------------------
-    // printf("### Elitism_elite\n");
     mDevParentPopulation->elitism(prms);
     checkAndReportCudaError(__FILE__, __LINE__);
 #else
     //- 疑似エリート保存戦略 -------------------------------
-    // printf("### Elitism_pseudo_elite\n");
     blocks.x  = prms->getNumOfElite();
     blocks.y  = 1;
     blocks.z  = 1;
 
     threads.x = prms->getPopsizePseudo() / prms->getNumOfElite();
-    // threads.x = prms->getPopsizeActual() / prms->getNumOfElite();
     threads.y = 1;
     threads.z = 1;
 
@@ -414,9 +376,6 @@ void GPUEvolution::runEvolutionCycle(
     pseudo_elitism
         <<<blocks, threads, threads.x * 2 * sizeof(int)>>>
         (mDevParentPopulation->getDeviceData());
-    // cudaEventRecord(end_elitism, 0);
-    // cudaEventSynchronize(end_elitism);
-
     checkAndReportCudaError(__FILE__, __LINE__);
 #endif // _ELITISM
 
@@ -427,15 +386,11 @@ void GPUEvolution::runEvolutionCycle(
     mKernelTimes.elitismTime += elapsed_time;
 #endif // _MEASURE_KERNEL_TIME
 
-    // cudaEventElapsedTime(&elapsed_time_elitism, start_elitism, end_elitism);
-    // total_elapsed_time_elitism += elapsed_time_elitism;
-
     //- Elitesの差し込み -----------------------------------
     blocks.x  = prms->getNumOfElite();
     blocks.y  = 1;
     blocks.z  = 1;
 
-    // threads.x = prms->getChromosomePseudo();
     threads.x = prms->getChromosomeActual();
     threads.y = 1;
     threads.z = 1;
@@ -476,10 +431,55 @@ void GPUEvolution::runEvolutionCycle(
 #endif // _SHOWPOPULATION
 
     //- 現世代の子を次世代の親とする -----------------------------------
-    // printf("### Elapsed time of elitism: %f\n", total_elapsed_time_elitism);
     temp = mDevParentPopulation;
     mDevParentPopulation = mDevOffspringPopulation;
     mDevOffspringPopulation = temp;
+}
+
+void GPUEvolution::showSummary(const Parameters& prms, const int& generation)
+{
+    dim3 blocks;
+    dim3 threads;
+
+    //- Fitness評価 ---------------------------------------
+    blocks.x = prms.getPopsizeActual();
+    blocks.y = 1;
+    blocks.z = 1;
+
+    //- evaluation では遺伝子配列に対してカスケーディングを用いるためPSEUDOを用いる
+    threads.x = prms.getChromosomePseudo();
+    threads.y = 1;
+    threads.z = 1;
+
+    evaluation
+        <<<blocks, threads, prms.getChromosomePseudo() * sizeof(int)>>>
+        (mDevOffspringPopulation->getDeviceData());
+    mDevOffspringPopulation->copyFromDevice(mHostOffspringPopulation->getDeviceData());
+    checkAndReportCudaError(__FILE__, __LINE__);
+
+    uint32_t* maxElementPtr
+        = std::max_element(mHostOffspringPopulation->getDeviceData()->fitness,
+                mHostOffspringPopulation->getDeviceData()->fitness + prms.getPopsizeActual());
+
+    uint32_t* minElementPtr
+        = std::min_element(mHostOffspringPopulation->getDeviceData()->fitness,
+                mHostOffspringPopulation->getDeviceData()->fitness + prms.getPopsizeActual());
+
+    double fitnessSum
+        = std::accumulate(mHostOffspringPopulation->getDeviceData()->fitness,
+                mHostOffspringPopulation->getDeviceData()->fitness + prms.getPopsizeActual(),
+                0.0) / prms.getPopsizeActual();
+
+    std::cout 
+        << generation
+        << "," << prms.getPopsizeActual()
+        << "," << prms.getChromosomeActual()
+        << "," << *maxElementPtr
+        << "," << *minElementPtr
+        << "," << fitnessSum
+        << std::endl;
+
+    return;
 }
 
 void GPUEvolution::showSummary(const Parameters& prms, const float& elapsedTime, const int& generation)
