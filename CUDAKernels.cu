@@ -225,7 +225,8 @@ __global__ void pseudo_elitism(PopulationData* populationData)
     }
     else
     {
-        s_fitness[localFitnessIdx] = INT_MIN; // 最大値を探すための初期値としてINT_MINを使用
+        s_fitness[localFitnessIdx] = 0; // 最大値を探すための初期値としてINT_MINを使用
+        // s_fitness[localFitnessIdx] = INT_MIN; // 最大値を探すための初期値としてINT_MINを使用
         s_fitness[localFitnessIdx + OFFSET] = globalFitnessIdx;
     }
     __syncthreads();
