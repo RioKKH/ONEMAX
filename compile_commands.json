@@ -1,87 +1,91 @@
 [
-  {
-    "arguments": [
-      "/usr/local/cuda/bin/nvcc",
-      "arch=compute_75,code=sm_75",
-      "-D_SHOWPOPULATION",
-      "-D_SHOWRESULT",
-      "-I./Common",
-      "-I./Random",
-      "-O3",
-      "-c",
-      "-o",
-      "CUDAKernels.o",
-      "CUDAKernels.cu"
-    ],
-    "directory": "/home/rio/work/git/ONEMAX",
-    "file": "/home/rio/work/git/ONEMAX/CUDAKernels.cu",
-    "output": "/home/rio/work/git/ONEMAX/CUDAKernels.o"
-  },
-  {
-    "arguments": [
-      "/usr/local/cuda/bin/nvcc",
-      "arch=compute_75,code=sm_75",
-      "-D_SHOWPOPULATION",
-      "-D_SHOWRESULT",
-      "-I./Common",
-      "-I./Random",
-      "-O3",
-      "-c",
-      "-o",
-      "Evolution.o",
-      "Evolution.cu"
-    ],
-    "directory": "/home/rio/work/git/ONEMAX",
-    "file": "/home/rio/work/git/ONEMAX/Evolution.cu",
-    "output": "/home/rio/work/git/ONEMAX/Evolution.o"
-  },
-  {
-    "arguments": [
-      "/usr/local/cuda/bin/nvcc",
-      "arch=compute_75,code=sm_75",
-      "-D_SHOWPOPULATION",
-      "-D_SHOWRESULT",
-      "-I./Common",
-      "-I./Random",
-      "-O3",
-      "-c",
-      "-o",
-      "Parameters.o",
-      "Parameters.cu"
-    ],
-    "directory": "/home/rio/work/git/ONEMAX",
-    "file": "/home/rio/work/git/ONEMAX/Parameters.cu",
-    "output": "/home/rio/work/git/ONEMAX/Parameters.o"
-  },
-  {
-    "arguments": [
-      "/usr/local/cuda/bin/nvcc",
-      "arch=compute_75,code=sm_75",
-      "-D_SHOWPOPULATION",
-      "-D_SHOWRESULT",
-      "-I./Common",
-      "-I./Random",
-      "-O3",
-      "-c",
-      "-o",
-      "Population.o",
-      "Population.cu"
-    ],
-    "directory": "/home/rio/work/git/ONEMAX",
-    "file": "/home/rio/work/git/ONEMAX/Population.cu",
-    "output": "/home/rio/work/git/ONEMAX/Population.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/g++",
-      "-O3",
-      "-c",
-      "-o",
-      "main.o",
-      "main.cpp"
-    ],
-    "directory": "/home/rio/work/git/ONEMAX",
-    "file": "/home/rio/work/git/ONEMAX/main.cpp",
-    "output": "/home/rio/work/git/ONEMAX/main.o"
-  }
+ {
+  "arguments": [
+   "/usr/local/cuda/bin/nvcc",
+   "arch=compute_75,code=sm_75",
+   "-D_SHOWPOPULATION",
+   "-D_SHOWRESULT",
+   "-I./Common",
+   "-I./Random",
+   "-O3",
+   "-c",
+   "-o",
+   "CUDAKernels.o",
+   "CUDAKernels.cu"
+  ],
+  "directory": "/home/rio/work/git/ONEMAX",
+  "file": "/home/rio/work/git/ONEMAX/CUDAKernels.cu",
+  "output": "/home/rio/work/git/ONEMAX/CUDAKernels.o"
+ },
+ {
+  "arguments": [
+   "/usr/local/cuda/bin/nvcc",
+   "arch=compute_75,code=sm_75",
+   "-D_SHOWPOPULATION",
+   "-D_SHOWRESULT",
+   "-I./Common",
+   "-I./Random",
+   "-O3",
+   "-c",
+   "-o",
+   "Evolution.o",
+   "Evolution.cu"
+  ],
+  "directory": "/home/rio/work/git/ONEMAX",
+  "file": "/home/rio/work/git/ONEMAX/Evolution.cu",
+  "output": "/home/rio/work/git/ONEMAX/Evolution.o"
+ },
+ {
+  "arguments": [
+   "/usr/local/cuda/bin/nvcc",
+   "arch=compute_75,code=sm_75",
+   "-D_SHOWPOPULATION",
+   "-D_SHOWRESULT",
+   "-I./Common",
+   "-I./Random",
+   "-O3",
+   "-c",
+   "-o",
+   "Parameters.o",
+   "Parameters.cu"
+  ],
+  "directory": "/home/rio/work/git/ONEMAX",
+  "file": "/home/rio/work/git/ONEMAX/Parameters.cu",
+  "output": "/home/rio/work/git/ONEMAX/Parameters.o"
+ },
+ {
+  "arguments": [
+   "/usr/local/cuda/bin/nvcc",
+   "arch=compute_75,code=sm_75",
+   "-D_SHOWPOPULATION",
+   "-D_SHOWRESULT",
+   "-I./Common",
+   "-I./Random",
+   "-O3",
+   "-c",
+   "-o",
+   "Population.o",
+   "Population.cu"
+  ],
+  "directory": "/home/rio/work/git/ONEMAX",
+  "file": "/home/rio/work/git/ONEMAX/Population.cu",
+  "output": "/home/rio/work/git/ONEMAX/Population.o"
+ },
+ {
+  "directory": "/home/rio/work/git/ONEMAX",
+  "arguments": [
+   "g++",
+   "-O3",
+   "-D_SHOW_EACH_GEN_RESULT",
+   "-D_ELITISM",
+   "-I./Common",
+   "-I/usr/local/cuda/include",
+   "-I/usr/local/cuda/samples/common/inc",
+   "-o",
+   "main.o",
+   "-c",
+   "main.cpp"
+  ],
+  "file": "main.cpp"
+ }
 ]

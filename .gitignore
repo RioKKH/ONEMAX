@@ -1,0 +1,6 @@
+*.cache
+*.o
+tags
+test*
+*.org
+*.csv
